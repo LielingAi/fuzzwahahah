@@ -113,6 +113,9 @@ python protocol_fuzzer_generator.py --config mqtt_config.yaml --symbolic protoco
 #### 3. Web界面监控
 访问 `http://localhost:26000` 查看实时测试状态、结果分析和性能指标。
 
+WEB界面：
+![Web界面](https://github.com/J0hnFFFF/fuzzwahahah/blob/main/web.png)
+
 ## 🧠 AI增强功能
 
 ### 智能变异策略
