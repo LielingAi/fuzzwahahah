@@ -1,0 +1,25 @@
+{
+  "commands": [
+    "HELO",
+    "EHLO",
+    "MAIL FROM",
+    "RCPT TO",
+    "DATA",
+    "QUIT"
+  ],
+  "emails": [
+    "test@example.com",
+    "admin@localhost",
+    "user@test.local"
+  ],
+  "subjects": [
+    "Test Subject",
+    "Important Notice",
+    "System Alert"
+  ],
+  "bodies": [
+    "Test message body",
+    "Hello World!",
+    "System notification"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "commands": [
+    "ls",
+    "pwd",
+    "whoami",
+    "cat /etc/passwd",
+    "ps aux",
+    "netstat -an",
+    "id",
+    "uname -a"
+  ],
+  "usernames": [
+    "admin",
+    "root",
+    "user",
+    "guest",
+    "telnet",
+    "test"
+  ],
+  "passwords": [
+    "password",
+    "admin",
+    "123456",
+    "root",
+    "telnet",
+    "guest"
+  ]
+}

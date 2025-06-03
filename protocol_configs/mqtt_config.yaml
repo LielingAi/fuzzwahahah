@@ -1,0 +1,111 @@
+# MQTT Protocol Fuzzing Configuration
+# Message Queuing Telemetry Transport Protocol
+
+protocol:
+  name: "MQTT"
+  version: "3.1.1"
+  description: "MQTT Protocol Fuzzer Configuration"
+  port: 1883
+  transport: "tcp"
+  is_text_protocol: false
+  dangerous: false
+
+# Protocol Requests Definition
+requests:
+  - name: "MQTT Connect Packet"
+    id: "MQTT_CONNECT"
+    fields:
+      - type: "static"
+        primitive: "byte"
+        value: 0x10
+        name: "fixed_header"
+      - type: "static"
+        primitive: "byte"
+        value: 0x0C
+        name: "remaining_length"
+      - type: "static"
+        primitive: "word"
+        value: 0x0004
+        name: "protocol_name_length"
+        endian: "big"
+      - type: "string"
+        value: "MQTT"
+      - type: "static"
+        primitive: "byte"
+        value: 0x04
+        name: "protocol_level"
+      - type: "group"
+        name: "connect_flags"
+        data_source: "symbolic_connect_flags"
+      - type: "group"
+        name: "keep_alive"
+        data_source: "symbolic_keep_alive_values"
+      - type: "static"
+        primitive: "word"
+        value: 0x000C
+        name: "client_id_length"
+        endian: "big"
+      - type: "group"
+        name: "client_id"
+        data_source: "symbolic_client_ids"
+      - type: "group"
+        name: "username"
+        data_source: "symbolic_usernames"
+      - type: "group"
+        name: "password"
+        data_source: "symbolic_passwords"
+
+  - name: "MQTT Publish Packet"
+    id: "MQTT_PUBLISH"
+    fields:
+      - type: "static"
+        primitive: "byte"
+        value: 0x30
+        name: "fixed_header"
+      - type: "static"
+        primitive: "byte"
+        value: 0x0F
+        name: "remaining_length"
+      - type: "static"
+        primitive: "word"
+        value: 0x000A
+        name: "topic_length"
+        endian: "big"
+      - type: "group"
+        name: "topic_name"
+        data_source: "symbolic_topics"
+      - type: "group"
+        name: "payload"
+        data_source: "symbolic_messages"
+
+  - name: "MQTT Subscribe Packet"
+    id: "MQTT_SUBSCRIBE"
+    fields:
+      - type: "static"
+        primitive: "byte"
+        value: 0x82
+        name: "fixed_header"
+      - type: "static"
+        primitive: "byte"
+        value: 0x0E
+        name: "remaining_length"
+      - type: "static"
+        primitive: "word"
+        value: 0x0001
+        name: "packet_id"
+        endian: "big"
+      - type: "static"
+        primitive: "word"
+        value: 0x0006
+        name: "topic_filter_length"
+        endian: "big"
+      - type: "group"
+        name: "topic_filter"
+        data_source: "symbolic_topics"
+      - type: "group"
+        name: "qos"
+        data_source: "symbolic_qos_levels"
+
+# Symbolic Data Configuration
+description: "MQTT Protocol Fuzzer with AI Enhancement"
+web_port: 26020

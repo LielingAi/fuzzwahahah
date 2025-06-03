@@ -1,0 +1,34 @@
+{
+  "queries": [
+    "SELECT 1",
+    "SELECT VERSION()",
+    "SHOW DATABASES",
+    "SHOW TABLES"
+  ],
+  "databases": [
+    "test",
+    "mysql",
+    "information_schema",
+    "performance_schema"
+  ],
+  "tables": [
+    "users",
+    "accounts",
+    "products",
+    "orders",
+    "customers"
+  ],
+  "usernames": [
+    "root",
+    "admin",
+    "mysql",
+    "test"
+  ],
+  "passwords": [
+    "",
+    "root",
+    "admin",
+    "password",
+    "123456"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "methods": [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "HEAD",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT"
+  ],
+  "paths": [
+    "/",
+    "/index.html",
+    "/admin",
+    "/api/v1/users",
+    "/../etc/passwd",
+    "/test.php"
+  ],
+  "headers": [
+    "User-Agent",
+    "Authorization",
+    "X-Forwarded-For",
+    "Content-Type"
+  ],
+  "params": [
+    "id",
+    "user",
+    "password",
+    "email",
+    "search",
+    "q"
+  ],
+  "values": [
+    "test",
+    "admin",
+    "' OR 1=1 --",
+    "<script>alert(1)</script>",
+    "../../../etc/passwd"
+  ]
+}

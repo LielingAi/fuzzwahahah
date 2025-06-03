@@ -1,0 +1,45 @@
+description: Telnet Protocol Fuzzer with Authentication Testing
+imports:
+- struct
+protocol:
+  auth_required: true
+  dangerous: true
+  default_password: password
+  default_username: admin
+  is_text_protocol: true
+  name: Telnet
+  port: 23
+  transport: tcp
+requests:
+- fields:
+  - data_source: symbolic_usernames
+    name: username
+    type: group
+  - type: delim
+    value: \r\n
+  - data_source: symbolic_passwords
+    name: password
+    type: group
+  - type: delim
+    value: \r\n
+  id: TELNET_LOGIN
+  name: Telnet Login Sequence
+- fields:
+  - data_source: symbolic_commands
+    name: command
+    type: group
+  - type: delim
+    value: \r\n
+  id: TELNET_COMMAND
+  name: Telnet Command Execution
+symbolic_data:
+  symbolic_commands:
+    count: 10
+    type: commands
+  symbolic_passwords:
+    count: 8
+    type: passwords
+  symbolic_usernames:
+    count: 8
+    type: usernames
+web_port: 26010

@@ -1,0 +1,35 @@
+{
+  "commands": [
+    "USER",
+    "PASS",
+    "LIST",
+    "RETR",
+    "STOR",
+    "DELE",
+    "MKD",
+    "RMD",
+    "PWD",
+    "CWD"
+  ],
+  "usernames": [
+    "anonymous",
+    "admin",
+    "root",
+    "ftp",
+    "test"
+  ],
+  "passwords": [
+    "",
+    "admin",
+    "password",
+    "ftp",
+    "123456"
+  ],
+  "paths": [
+    "/",
+    "/etc/passwd",
+    "../../../etc/passwd",
+    "test.txt",
+    "upload.php"
+  ]
+}

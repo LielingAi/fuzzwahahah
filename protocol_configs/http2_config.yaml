@@ -1,0 +1,229 @@
+description: "HTTP/2 Protocol Fuzzer with Advanced Frame Testing"
+web_port: 26011
+imports:
+  - struct
+  - base64
+
+protocol:
+  name: "HTTP2"
+  port: 443
+  transport: "ssl"
+  is_text_protocol: false
+  auth_required: false
+  dangerous: true
+
+symbolic_data:
+  symbolic_methods:
+    type: "methods"
+    count: 8
+  symbolic_paths:
+    type: "paths" 
+    count: 15
+  symbolic_headers:
+    type: "headers"
+    count: 12
+  symbolic_values:
+    type: "values"
+    count: 20
+
+helpers:
+  encode_hpack:
+    description: "HPACK header compression encoder"
+    code: |
+      def encode_header(name, value):
+          # 简化的HPACK编码
+          return f"{len(name)}:{name}:{len(value)}:{value}".encode()
+
+requests:
+  - name: "HTTP/2 Connection Preface"
+    id: "HTTP2_PREFACE"
+    fields:
+      - type: "string"
+        value: "PRI * HTTP/2.0\\r\\n\\r\\nSM\\r\\n\\r\\n"
+
+  - name: "HTTP/2 SETTINGS Frame"
+    id: "HTTP2_SETTINGS"
+    fields:
+      - type: "static"
+        primitive: "size"
+        name: "frame_length"
+        target: "settings_payload"
+        length: 3
+        endian: ">"
+      - type: "static"
+        primitive: "byte"
+        value: 0x04
+        name: "frame_type"
+      - type: "static"
+        primitive: "byte"
+        value: 0x00
+        name: "flags"
+      - type: "static"
+        primitive: "dword"
+        value: 0x00000000
+        name: "stream_id"
+        endian: ">"
+      - type: "block_start"
+        name: "settings_payload"
+      - type: "static"
+        primitive: "word"
+        value: 0x0001
+        name: "header_table_size_id"
+        endian: ">"
+      - type: "static"
+        primitive: "dword"
+        value: 4096
+        name: "header_table_size_value"
+        endian: ">"
+      - type: "static"
+        primitive: "word"
+        value: 0x0002
+        name: "enable_push_id"
+        endian: ">"
+      - type: "static"
+        primitive: "dword"
+        value: 1
+        name: "enable_push_value"
+        endian: ">"
+      - type: "block_end"
+        name: "settings_payload"
+
+  - name: "HTTP/2 HEADERS Frame"
+    id: "HTTP2_HEADERS"
+    fields:
+      - type: "size"
+        target: "headers_payload"
+        length: 3
+        endian: ">"
+      - type: "static"
+        primitive: "byte"
+        value: 0x01
+        name: "frame_type"
+      - type: "static"
+        primitive: "byte"
+        value: 0x05
+        name: "flags"
+      - type: "static"
+        primitive: "dword"
+        value: 0x00000001
+        name: "stream_id"
+        endian: ">"
+      - type: "block_start"
+        name: "headers_payload"
+      - type: "group"
+        name: "method"
+        data_source: "symbolic_methods"
+        convert_to_bytes: true
+        byte_format: "auto"
+      - type: "delim"
+        value: " "
+      - type: "group"
+        name: "path"
+        data_source: "symbolic_paths"
+        convert_to_bytes: true
+        byte_format: "auto"
+      - type: "delim"
+        value: " HTTP/2\\r\\n"
+      - type: "string"
+        value: "Host: example.com\\r\\n"
+      - type: "group"
+        name: "user_agent"
+        values: ["Mozilla/5.0", "curl/7.68.0", "Malicious/1.0"]
+      - type: "delim"
+        value: "\\r\\n\\r\\n"
+      - type: "block_end"
+        name: "headers_payload"
+
+  - name: "HTTP/2 DATA Frame"
+    id: "HTTP2_DATA"
+    fields:
+      - type: "size"
+        target: "data_payload"
+        length: 3
+        endian: ">"
+      - type: "static"
+        primitive: "byte"
+        value: 0x00
+        name: "frame_type"
+      - type: "static"
+        primitive: "byte"
+        value: 0x01
+        name: "flags"
+      - type: "static"
+        primitive: "dword"
+        value: 0x00000001
+        name: "stream_id"
+        endian: ">"
+      - type: "block_start"
+        name: "data_payload"
+      - type: "group"
+        name: "post_data"
+        data_source: "symbolic_values"
+        convert_to_bytes: true
+        byte_format: "auto"
+      - type: "block_end"
+        name: "data_payload"
+
+  - name: "HTTP/2 WINDOW_UPDATE Frame"
+    id: "HTTP2_WINDOW_UPDATE"
+    fields:
+      - type: "static"
+        primitive: "size"
+        name: "frame_length"
+        target: "window_payload"
+        length: 3
+        endian: ">"
+      - type: "static"
+        primitive: "byte"
+        value: 0x08
+        name: "frame_type"
+      - type: "static"
+        primitive: "byte"
+        value: 0x00
+        name: "flags"
+      - type: "static"
+        primitive: "dword"
+        value: 0x00000000
+        name: "stream_id"
+        endian: ">"
+      - type: "block_start"
+        name: "window_payload"
+      - type: "group"
+        name: "window_size_increment"
+        values: [1024, 65536, 0x7FFFFFFF, 0x80000000]
+        convert_to_bytes: true
+        byte_format: "big_endian_dword"
+      - type: "block_end"
+        name: "window_payload"
+
+  - name: "HTTP/2 Malicious Frame"
+    id: "HTTP2_MALICIOUS"
+    fields:
+      - type: "static"
+        primitive: "size"
+        name: "frame_length"
+        target: "malicious_payload"
+        length: 3
+        endian: ">"
+      - type: "group"
+        name: "malicious_frame_type"
+        values: [0xFF, 0x100, 0x200]
+        convert_to_bytes: true
+        byte_format: "auto"
+      - type: "static"
+        primitive: "byte"
+        value: 0xFF
+        name: "flags"
+      - type: "static"
+        primitive: "dword"
+        value: 0xFFFFFFFF
+        name: "stream_id"
+        endian: ">"
+      - type: "block_start"
+        name: "malicious_payload"
+      - type: "random"
+        name: "random_data"
+        min_length: 100
+        max_length: 10000
+      - type: "block_end"
+        name: "malicious_payload"

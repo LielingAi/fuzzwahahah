@@ -1,0 +1,25 @@
+{
+  "versions": [
+    "SSH-2.0-OpenSSH_8.0",
+    "SSH-2.0-libssh_0.8.0",
+    "SSH-1.99-Cisco-1.25"
+  ],
+  "usernames": [
+    "root",
+    "admin",
+    "user",
+    "guest",
+    "test"
+  ],
+  "passwords": [
+    "password",
+    "admin",
+    "123456",
+    "root",
+    "test"
+  ],
+  "algorithms": [
+    "diffie-hellman-group14-sha256",
+    "ecdh-sha2-nistp256"
+  ]
+}

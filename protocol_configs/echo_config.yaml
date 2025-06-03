@@ -1,0 +1,43 @@
+description: "Simple Echo Protocol Fuzzer for Testing"
+web_port: 26012
+
+protocol:
+  name: "Echo"
+  port: 7
+  transport: "tcp"
+  is_text_protocol: true
+  dangerous: false
+
+symbolic_data:
+  test_messages:
+    type: "values"
+    count: 15
+
+requests:
+  - name: "Echo Simple Message"
+    id: "ECHO_SIMPLE"
+    fields:
+      - type: "group"
+        name: "message"
+        data_source: "test_messages"
+      - type: "delim"
+        value: "\n"
+
+  - name: "Echo Binary Data"
+    id: "ECHO_BINARY"
+    fields:
+      - type: "random"
+        name: "binary_data"
+        min_length: 10
+        max_length: 100
+      - type: "delim"
+        value: "\n"
+
+  - name: "Echo Overflow Test"
+    id: "ECHO_OVERFLOW"
+    fields:
+      - type: "group"
+        name: "overflow_data"
+        values: ["A", "AA", "AAA"]
+      - type: "delim"
+        value: "\n"

@@ -1,0 +1,27 @@
+{
+  "commands": [
+    "GET",
+    "SET",
+    "DEL",
+    "HGET",
+    "HSET",
+    "LPUSH",
+    "RPOP",
+    "SADD",
+    "EVAL"
+  ],
+  "keys": [
+    "test",
+    "user:1",
+    "session:abc",
+    "cache:data",
+    "queue:jobs"
+  ],
+  "values": [
+    "test_value",
+    "123",
+    "{'json': 'data'}",
+    "admin",
+    "password"
+  ]
+}

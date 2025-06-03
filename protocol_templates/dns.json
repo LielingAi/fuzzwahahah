@@ -1,0 +1,26 @@
+{
+  "domains": [
+    "test.com",
+    "example.org",
+    "malicious.evil",
+    "localhost.local"
+  ],
+  "qtypes": [
+    1,
+    2,
+    5,
+    6,
+    12,
+    15,
+    16,
+    28,
+    33,
+    255
+  ],
+  "classes": [
+    1,
+    2,
+    3,
+    4
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "queries": [
+    "SELECT @@VERSION",
+    "SELECT SYSTEM_USER",
+    "EXEC sp_helpdb"
+  ],
+  "databases": [
+    "master",
+    "tempdb",
+    "msdb",
+    "model"
+  ],
+  "tables": [
+    "sysobjects",
+    "sysusers",
+    "syscolumns"
+  ],
+  "procedures": [
+    "sp_help",
+    "sp_helpdb",
+    "sp_who",
+    "xp_cmdshell"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "usernames": [
+    "administrator",
+    "admin",
+    "user",
+    "guest",
+    "test"
+  ],
+  "passwords": [
+    "password",
+    "admin",
+    "123456",
+    "Password123"
+  ],
+  "channels": [
+    "rdpdr",
+    "cliprdr",
+    "rdpsnd",
+    "drdynvc"
+  ]
+}
