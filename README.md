@@ -79,7 +79,7 @@ fuzzwahahah/
 
 ### 安装
 ```bash
-git clone https://github.com/your-repo/fuzzwahahah.git
+git clone https://github.com/J0hnFFFF/fuzzwahahah.git
 cd fuzzwahahah
 pip install -r requirements.txt
 ```
