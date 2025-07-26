@@ -1,27 +1,68 @@
 {
   "commands": [
-    "GET",
-    "SET",
-    "DEL",
-    "HGET",
-    "HSET",
-    "LPUSH",
-    "RPOP",
-    "SADD",
-    "EVAL"
+    "GET", "SET", "DEL", "MGET", "MSET", "INCR", "DECR", "INCRBY", "DECRBY", "INCRBYFLOAT",
+    "HGET", "HSET", "HDEL", "HGETALL", "HKEYS", "HVALS", "HEXISTS", "HLEN", "HINCRBY",
+    "LPUSH", "RPUSH", "LPOP", "RPOP", "LLEN", "LINDEX", "LRANGE", "LREM", "LSET", "LTRIM",
+    "BLPOP", "BRPOP", "LPUSHX", "RPUSHX", "LINSERT", "RPOPLPUSH", "BRPOPLPUSH",
+    "SADD", "SREM", "SMEMBERS", "SISMEMBER", "SCARD", "SPOP", "SRANDMEMBER", "SMOVE",
+    "SDIFF", "SINTER", "SUNION", "SDIFFSTORE", "SINTERSTORE", "SUNIONSTORE", "SSCAN",
+    "ZADD", "ZREM", "ZSCORE", "ZRANK", "ZREVRANK", "ZCARD", "ZCOUNT", "ZINCRBY",
+    "ZRANGE", "ZREVRANGE", "ZRANGEBYSCORE", "ZREVRANGEBYSCORE", "ZREMRANGEBYRANK",
+    "ZREMRANGEBYSCORE", "ZINTERSTORE", "ZUNIONSTORE", "ZLEXCOUNT", "ZRANGEBYLEX",
+    "ZREMRANGEBYLEX", "ZSCAN",
+    "PUBLISH", "SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PUBSUB",
+    "MULTI", "EXEC", "DISCARD", "WATCH", "UNWATCH",
+    "PING", "ECHO", "SELECT", "QUIT", "AUTH",
+    "EXPIRE", "EXPIREAT", "PEXPIRE", "PEXPIREAT", "TTL", "PTTL", "PERSIST",
+    "EXISTS", "TYPE", "KEYS", "RANDOMKEY", "RENAME", "RENAMENX", "MOVE", "DUMP",
+    "EVAL", "EVALSHA", "SCRIPT",
+    "INFO", "CONFIG", "FLUSHDB", "FLUSHALL", "SAVE", "BGSAVE", "DBSIZE", "LASTSAVE",
+    "MONITOR", "SHUTDOWN", "CLIENT", "COMMAND", "TIME", "ROLE", "SLAVEOF", "SYNC",
+    "SLOWLOG", "DEBUG", "BGREWRITEAOF",
+    "APPEND", "GETRANGE", "SETRANGE", "STRLEN", "GETBIT", "SETBIT", "GETSET",
+    "SETEX", "SETNX", "PSETEX", "MSETNX",
+    "PFADD", "PFCOUNT", "PFMERGE",
+    "GEOADD", "GEODIST", "GEOHASH", "GEOPOS", "GEORADIUS", "GEORADIUSBYMEMBER"
   ],
   "keys": [
-    "test",
-    "user:1",
-    "session:abc",
-    "cache:data",
-    "queue:jobs"
+    "test", "user:1", "session:abc", "cache:data", "queue:jobs", "counter", "score",
+    "visits", "count", "tags", "users", "permissions", "groups", "leaderboard",
+    "scores", "ranking", "top", "news", "alerts", "chat", "notifications", "events",
+    "config:key", "data:item", "hash:user", "list:tasks", "set:members", "zset:scores",
+    "geo:locations", "hll:unique", "stream:events", "bitmap:flags", "temp:data",
+    "session:*", "user:*:profile", "cache:*:data", "queue:*:jobs", "log:*:entries"
   ],
   "values": [
-    "test_value",
-    "123",
-    "{'json': 'data'}",
-    "admin",
-    "password"
+    "test_value", "123", "{'json': 'data'}", "admin", "password", "hello world",
+    "true", "false", "null", "0", "1", "-1", "999999", "3.14159", "2023-01-01",
+    "user@example.com", "192.168.1.1", "localhost", "http://example.com",
+    "<script>alert('xss')</script>", "'; DROP TABLE users; --", "../../../etc/passwd",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "🚀🔥💯", "测试数据", "тест", "テスト",
+    "very_long_string_with_many_characters_to_test_buffer_overflow_conditions",
+    "", " ", "\n\r\t", "\\", "\"", "'", "{\"key\": \"value\"}", "[1,2,3,4,5]"
+  ],
+  "channels": [
+    "news", "alerts", "chat", "notifications", "events", "system", "debug",
+    "user:*", "channel:*", "topic:*", "queue:*", "log:*", "metric:*"
+  ],
+  "scripts": [
+    "return 1",
+    "return redis.call('get', KEYS[1])",
+    "return redis.call('set', KEYS[1], ARGV[1])",
+    "return redis.call('ping')",
+    "return KEYS[1] .. ARGV[1]",
+    "for i=1,10 do redis.call('set', 'key'..i, i) end",
+    "return redis.call('info')",
+    "return redis.call('keys', '*')",
+    "local val = redis.call('get', KEYS[1]); if val then return val else return 'not found' end"
+  ],
+  "scores": [
+    "1", "100", "0", "-1", "999.99", "inf", "-inf", "3.14", "0.001", "1000000"
+  ],
+  "time_values": [
+    "60", "3600", "86400", "-1", "0", "999999999", "1", "10", "100", "604800"
+  ],
+  "db_numbers": [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"
   ]
 }
