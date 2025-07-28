@@ -54,7 +54,7 @@ class AFLSudoSeedGenerator:
             "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/hosts",
             "/proc/version", "/sys/kernel/debug", "/dev/mem"
         ]
-
+    
     def generate_ai_enhanced_data(self) -> Dict[str, List[str]]:
         """使用 FuzzWahahah AI 生成增强数据"""
         if not ENHANCED_MODE:

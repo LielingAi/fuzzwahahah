@@ -5,165 +5,101 @@
 # Core Boofuzz Framework Dependencies
 # ============================================================================
 
-# Boofuzz core framework (if installing from PyPI)
-# boofuzz>=0.4.0
+# boofuzz>=0.4.0           # Uncomment if using Boofuzz core framework
 
-# Web Framework for monitoring interface
 Flask>=2.3.0
 Werkzeug>=2.3.0
-
-# Command Line Interface
 click>=8.1.0
-
-# Template Engine for fuzzer generation
 Jinja2>=3.1.0
 MarkupSafe>=2.1.0
-
-# Configuration file parsing
 PyYAML>=6.0
 
 # ============================================================================
 # Network and Protocol Support
 # ============================================================================
 
-# Network connections and socket handling
 psutil>=5.9.0
-
-# SSL/TLS support for secure protocols
 pyOpenSSL>=23.0.0
 cryptography>=41.0.0
-
-# Protocol-specific libraries
-requests>=2.31.0          # HTTP client for testing
-paho-mqtt>=1.6.0          # MQTT protocol support
+requests>=2.31.0
+paho-mqtt>=1.6.0
 
 # ============================================================================
 # AI and Machine Learning Components
 # ============================================================================
 
-# Core scientific computing
 numpy>=1.24.0
-
-# Machine learning for AI-driven fuzzing
 scikit-learn>=1.3.0
-
-# Statistical analysis and pattern recognition
 scipy>=1.10.0
-
-# Data manipulation and analysis
 pandas>=2.0.0
 
 # ============================================================================
 # Symbolic Execution and Analysis
 # ============================================================================
 
-# AST parsing and code analysis (built-in, but ensuring compatibility)
-# ast - built-in module
-
-# Constraint solving (optional, for advanced symbolic execution)
 # z3-solver>=4.12.0        # Uncomment if using Z3 solver
 
 # ============================================================================
 # Web Interface and Visualization
 # ============================================================================
 
-# Async support for web interface
 tornado>=6.3.0
-
-# JSON handling (built-in, but ensuring compatibility)
-# json - built-in module
-
-# Date and time handling
 python-dateutil>=2.8.0
 
 # ============================================================================
 # Development and Testing
 # ============================================================================
 
-# Code formatting and linting
 black>=23.0.0
 flake8>=6.0.0
 pylint>=2.17.0
-
-# Testing framework
 pytest>=7.4.0
 pytest-cov>=4.1.0
 pytest-mock>=3.11.0
-
-# Type checking
 mypy>=1.5.0
 
 # ============================================================================
 # Performance and Optimization
 # ============================================================================
 
-# Memory profiling and optimization
 memory-profiler>=0.61.0
-
-# Caching for performance optimization
 cachetools>=5.3.0
 
 # ============================================================================
 # Logging and Monitoring
 # ============================================================================
 
-# Enhanced logging capabilities
-colorama>=0.4.6           # Colored terminal output
-rich>=13.5.0              # Rich text and beautiful formatting
+colorama>=0.4.6
+rich>=13.5.0
 
 # ============================================================================
 # Data Storage and Persistence
 # ============================================================================
 
-# Database support for test results
-SQLAlchemy>=2.0.0         # Database ORM
-sqlite3                   # Built-in SQLite support
-
-# ============================================================================
-# System and Process Monitoring
-# ============================================================================
-
-# Process monitoring and system information
-psutil>=5.9.0             # Already listed above, but critical
+SQLAlchemy>=2.0.0
 
 # ============================================================================
 # Security and Cryptography
 # ============================================================================
 
-# Cryptographic functions for protocol testing
 pycryptodome>=3.18.0
-
-# Hash functions and security utilities
-hashlib                   # Built-in module
 
 # ============================================================================
 # File and Data Handling
 # ============================================================================
 
-# File format support
-chardet>=5.2.0            # Character encoding detection
-
-# Compression support
-gzip                      # Built-in module
-zipfile                   # Built-in module
+chardet>=5.2.0
 
 # ============================================================================
 # Optional Dependencies for Extended Features
 # ============================================================================
 
-# Advanced symbolic execution (uncomment if needed)
 # angr>=9.2.0             # Binary analysis platform
 # claripy>=9.2.0          # Constraint solver
-
-# Machine learning acceleration (uncomment if using GPU)
 # tensorflow>=2.13.0      # Deep learning framework
 # torch>=2.0.0            # PyTorch for neural networks
-
-# Advanced network analysis (uncomment if needed)
 # scapy>=2.5.0            # Packet manipulation
 # netfilterqueue>=1.1.0   # Network packet filtering
-
-# Distributed computing (uncomment if needed)
 # celery>=5.3.0           # Distributed task queue
 # redis>=4.6.0            # Redis for caching and queuing
 
@@ -171,21 +107,14 @@ zipfile                   # Built-in module
 # Platform-specific Dependencies
 # ============================================================================
 
-# Windows-specific (uncomment on Windows)
 # pywin32>=306; sys_platform == "win32"
 # wmi>=1.5.1; sys_platform == "win32"
-
-# Linux-specific (uncomment on Linux)
 # python-ptrace>=0.9.8; sys_platform == "linux"
 
 # ============================================================================
 # Version Constraints and Compatibility
 # ============================================================================
 
-# Ensure Python 3.8+ compatibility
-# Python>=3.8 is handled by setup.py or pyproject.toml
-
-# Pin critical versions to avoid breaking changes
 setuptools>=68.0.0
 wheel>=0.41.0
 pip>=23.0.0
@@ -194,28 +123,14 @@ pip>=23.0.0
 # Documentation and Development Tools
 # ============================================================================
 
-# Documentation generation (for development)
 # sphinx>=7.1.0
 # sphinx-rtd-theme>=1.3.0
-
-# Code quality tools (for development)
 # pre-commit>=3.4.0
-# bandit>=1.7.5           # Security linting
+# bandit>=1.7.5
 
 # ============================================================================
 # Notes:
 # ============================================================================
-# 
-# 1. Some dependencies marked with # are built-in Python modules
-# 2. Optional dependencies are commented out - uncomment as needed
-# 3. Version numbers are minimum requirements - newer versions should work
-# 4. For production deployment, consider pinning exact versions
-# 5. Some advanced features may require additional system-level dependencies
-# 
-# Installation:
-#   pip install -r requirements.txt
-# 
-# Development installation:
-#   pip install -r requirements.txt -r requirements-dev.txt
-# 
-# ============================================================================
+# 1. 不要写内置模块（如 ast, json, sqlite3, hashlib, gzip, zipfile 等）
+# 2. 可选依赖已注释，按需取消注释
+# 3. 版本号为最低要求，生产环境建议锁定具体版
