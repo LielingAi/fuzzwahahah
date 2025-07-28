@@ -54,7 +54,7 @@ class AFLSudoSeedGenerator:
             "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/hosts",
             "/proc/version", "/sys/kernel/debug", "/dev/mem"
         ]
-    
+
     def generate_ai_enhanced_data(self) -> Dict[str, List[str]]:
         """使用 FuzzWahahah AI 生成增强数据"""
         if not ENHANCED_MODE:
@@ -97,29 +97,29 @@ class AFLSudoSeedGenerator:
         
         # 1. 简单命令
         for cmd in ai_data['commands'][:50]:
-            seeds.append(f"sudo {cmd}")
+            seeds.append(f"{cmd}")
         
         # 2. 带选项的命令
         for opt in ai_data['options'][:30]:
             for cmd in self.base_commands[:10]:
                 if len(opt) == 1:
-                    seeds.append(f"sudo -{opt} {cmd}")
+                    seeds.append(f"-{opt} {cmd}")
                 else:
-                    seeds.append(f"sudo --{opt} {cmd}")
+                    seeds.append(f"--{opt} {cmd}")
         
         # 3. 指定用户
         for user in ai_data['users'][:20]:
             for cmd in self.base_commands[:10]:
-                seeds.append(f"sudo -u {user} {cmd}")
+                seeds.append(f"-u {user} {cmd}")
         
         # 4. 组合选项
         for user in ai_data['users'][:10]:
             for opt in ai_data['options'][:10]:
                 for cmd in self.base_commands[:5]:
                     if len(opt) == 1:
-                        seeds.append(f"sudo -u {user} -{opt} {cmd}")
+                        seeds.append(f"-u {user} -{opt} {cmd}")
                     else:
-                        seeds.append(f"sudo -u {user} --{opt} {cmd}")
+                        seeds.append(f"-u {user} --{opt} {cmd}")
         
         return seeds
 
@@ -127,46 +127,46 @@ class AFLSudoSeedGenerator:
         """生成危险命令种子（用于安全测试）"""
         dangerous_seeds = [
             # CVE-2021-3156 (Baron Samedit) 相关
-            "sudo -u#-1 /bin/bash",
-            "sudo -u#4294967295 /bin/sh", 
-            "sudo -g#-1 /bin/bash",
-            "sudoedit -s /",
-            "sudoedit -s \\",
+            "-u#-1 /bin/bash",
+            "-u#4294967295 /bin/sh", 
+            "-g#-1 /bin/bash",
+            "-s /",
+            "-s \\",
             
             # 缓冲区溢出测试
-            "sudo " + "A" * 1000,
-            "sudo -u " + "x" * 500 + " /bin/sh",
-            "sudo --user=" + "y" * 1000,
+            "" + "A" * 1000,
+            "-u " + "x" * 500 + " /bin/sh",
+            "--user=" + "y" * 1000,
             
             # 命令注入和转义
-            "sudo ls; id",
-            "sudo ls && id", 
-            "sudo ls || id",
-            "sudo ls `id`",
-            "sudo ls $(whoami)",
-            "sudo ls | id",
-            "sudo 'rm -rf /'",
-            'sudo "rm -rf /"',
-            "sudo ls ../../../etc/passwd",
+            "ls; id",
+            "ls && id", 
+            "ls || id",
+            "ls `id`",
+            "ls $(whoami)",
+            "ls | id",
+            "'rm -rf /'",
+            '"rm -rf /"',
+            "ls ../../../etc/passwd",
             
             # 环境变量操作
-            "sudo PATH=/tmp:/bin ls",
-            "sudo HOME=/tmp bash",
-            "sudo SHELL=/bin/bash -s",
-            "sudo LD_PRELOAD=/tmp/evil.so /bin/ls",
+            "PATH=/tmp:/bin ls",
+            "HOME=/tmp bash",
+            "SHELL=/bin/bash -s",
+            "LD_PRELOAD=/tmp/evil.so /bin/ls",
             
             # 特权提升
-            "sudo chmod 4755 /bin/sh",
-            "sudo chown root:root /tmp/shell",
-            "sudo cp /bin/sh /tmp/rootshell",
+            "chmod 4755 /bin/sh",
+            "chown root:root /tmp/shell",
+            "cp /bin/sh /tmp/rootshell",
             
             # 文件系统攻击
-            "sudo rm -rf /",
-            "sudo rm -rf /*", 
-            "sudo chmod 777 /etc/passwd",
-            "sudo chmod 777 /etc/shadow",
-            "sudo cat /etc/shadow",
-            "sudo vim /etc/passwd",
+            "rm -rf /",
+            "rm -rf /*", 
+            "chmod 777 /etc/passwd",
+            "chmod 777 /etc/shadow",
+            "cat /etc/shadow",
+            "vim /etc/passwd",
         ]
         
         return dangerous_seeds
@@ -177,9 +177,9 @@ class AFLSudoSeedGenerator:
         
         # 长度边界测试
         for length in [100, 255, 256, 500, 1000, 2000, 4096, 8192]:
-            boundary_seeds.append("sudo " + "A" * length)
-            boundary_seeds.append("sudo -u " + "x" * length)
-            boundary_seeds.append("sudo --user=" + "y" * length)
+            boundary_seeds.append("" + "A" * length)
+            boundary_seeds.append("-u " + "x" * length)
+            boundary_seeds.append("--user=" + "y" * length)
         
         # 特殊字符测试
         special_chars = [
@@ -188,27 +188,27 @@ class AFLSudoSeedGenerator:
         ]
         
         for char in special_chars:
-            boundary_seeds.append(f"sudo ls{char}")
-            boundary_seeds.append(f"sudo {char}ls")
-            boundary_seeds.append(f"sudo -u{char}root ls")
+            boundary_seeds.append(f"ls{char}")
+            boundary_seeds.append(f"{char}ls")
+            boundary_seeds.append(f"-u{char}root ls")
         
         # Unicode 测试
         unicode_tests = [
-            "sudo 测试",
-            "sudo ñoño",
-            "sudo 🚀test",
-            "sudo \u0000test",
-            "sudo \uffff",
+            "测试",
+            "ñoño",
+            "🚀test",
+            "\u0000test",
+            "\uffff",
         ]
         boundary_seeds.extend(unicode_tests)
         
         # 格式字符串测试
         format_tests = [
-            "sudo %s%s%s%s",
-            "sudo %n%n%n%n",
-            "sudo %x%x%x%x",
-            "sudo %p%p%p%p",
-            "sudo %d%d%d%d",
+            "%s%s%s%s",
+            "%n%n%n%n",
+            "%x%x%x%x",
+            "%p%p%p%p",
+            "%d%d%d%d",
         ]
         boundary_seeds.extend(format_tests)
         
@@ -220,17 +220,17 @@ class AFLSudoSeedGenerator:
         
         # 环境变量设置
         for env_var in ai_data['env_vars']:
-            env_seeds.append(f"sudo {env_var}=malicious_value /bin/ls")
-            env_seeds.append(f"sudo {env_var}=/tmp /bin/bash")
-            env_seeds.append(f"sudo {env_var}='' /bin/sh")
+            env_seeds.append(f"{env_var}=malicious_value /bin/ls")
+            env_seeds.append(f"{env_var}=/tmp /bin/bash")
+            env_seeds.append(f"{env_var}='' /bin/sh")
         
         # 多个环境变量
-        env_seeds.append("sudo PATH=/tmp HOME=/tmp USER=root /bin/bash")
-        env_seeds.append("sudo SHELL=/bin/bash TERM=xterm /bin/sh")
+        env_seeds.append("PATH=/tmp HOME=/tmp USER=root /bin/bash")
+        env_seeds.append("SHELL=/bin/bash TERM=xterm /bin/sh")
         
         # 环境变量注入
-        env_seeds.append("sudo PATH=$PATH:/tmp /bin/ls")
-        env_seeds.append("sudo HOME=$(pwd) /bin/bash")
+        env_seeds.append("PATH=$PATH:/tmp /bin/ls")
+        env_seeds.append("HOME=$(pwd) /bin/bash")
         
         return env_seeds
 
@@ -240,25 +240,25 @@ class AFLSudoSeedGenerator:
         
         # CVE-2021-3156 (Baron Samedit)
         cve_seeds.extend([
-            "sudoedit -s /",
-            "sudoedit -s \\",
-            "sudoedit -s '\\'",
-            'sudoedit -s "\\"',
-            "sudo -u#-1 /bin/bash",
-            "sudo -u#4294967295 /bin/sh",
+            "-s /",
+            "-s \\",
+            "-s '\\'",
+            '-s "\\"',
+            "-u#-1 /bin/bash",
+            "-u#4294967295 /bin/sh",
         ])
         
         # CVE-2019-14287 (用户ID绕过)
         cve_seeds.extend([
-            "sudo -u#-1 id",
-            "sudo -u#4294967295 whoami", 
-            "sudo -u ALL /bin/bash",
+            "-u#-1 id",
+            "-u#4294967295 whoami", 
+            "-u ALL /bin/bash",
         ])
         
         # CVE-2017-1000367 (get_process_ttyname)
         cve_seeds.extend([
-            "sudo " + "A" * 1024,
-            "sudo -u root " + "B" * 512,
+            "" + "A" * 1024,
+            "-u root " + "B" * 512,
         ])
         
         return cve_seeds
