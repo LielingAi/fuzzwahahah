@@ -260,7 +260,7 @@ class ProtocolSymbolicEngine:
         
         return mutations
     
-    def generate_binary_data(self, data_type: str, length: int = None) -> bytes:
+    def generate_binary_data(self, data_type: str, length: int = 1) -> bytes:
         """生成二进制数据"""
         if data_type == 'random':
             length = length or random.randint(1, 1024)
@@ -596,7 +596,7 @@ def generate_protocol_data(protocol: str, data_type: str, count: int = 10, use_a
     else:
         return protocol_symbolic_engine.generate_protocol_data(protocol, data_type, count)
 
-def generate_binary_data(data_type: str, length: int = None) -> bytes:
+def generate_binary_data(data_type: str, length: int = 1) -> bytes:
     """便捷函数：生成二进制数据"""
     return protocol_symbolic_engine.generate_binary_data(data_type, length)
 
@@ -608,7 +608,7 @@ def learn_from_test_result(protocol: str, data_type: str, mutation_data: str, te
     """便捷函数：AI学习反馈"""
     protocol_symbolic_engine.learn_from_feedback(protocol, data_type, mutation_data, test_result)
 
-def save_ai_learning_data(protocol: str = None):
+def save_ai_learning_data(protocol: str = ""):
     """便捷函数：保存AI学习数据"""
     if protocol:
         protocol_symbolic_engine.save_protocol_learning_data(protocol)
