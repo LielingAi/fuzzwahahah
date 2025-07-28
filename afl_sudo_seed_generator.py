@@ -263,7 +263,7 @@ class AFLSudoSeedGenerator:
         
         return cve_seeds
 
-    def save_seed(self, content: str, prefix: str = "sudo", seed_type: str = "basic") -> str:
+    def save_seed(self, content: str, prefix: str = "sudo", seed_type: str = "basic") -> bool:
         """保存单个种子文件"""
         # 使用更有意义的文件名
         seed_file = self.output_dir / f"{prefix}_{seed_type}_{self.seed_count:06d}"
@@ -273,10 +273,10 @@ class AFLSudoSeedGenerator:
             with open(seed_file, 'wb') as f:
                 f.write(content.encode('utf-8'))
             self.seed_count += 1
-            return str(seed_file)
+            return True
         except Exception as e:
             print(f"❌ 保存种子失败: {e}")
-            return None
+            return False
 
     def generate_all_seeds(self, count: int = 2000) -> int:
         """生成所有类型的种子"""
