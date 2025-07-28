@@ -14,13 +14,13 @@ from typing import List, Dict, Any
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data
-    ENHANCED_MODE = True
-    print("✅ 已启用 FuzzWahahah AI 增强模式")
-except ImportError:
-    ENHANCED_MODE = False
-    print("⚠️  FuzzWahahah 增强功能不可用，使用基础模式")
+#try:
+from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data
+ENHANCED_MODE = True
+print("✅ 已启用 FuzzWahahah AI 增强模式")
+#except ImportError:
+#    ENHANCED_MODE = False
+#    print("⚠️  FuzzWahahah 增强功能不可用，使用基础模式")
 
 class AFLSudoSeedGenerator:
     """AFL++ Sudo 种子生成器"""
@@ -64,16 +64,9 @@ class AFLSudoSeedGenerator:
             print("🧠 使用 AI 增强生成 sudo 测试数据...")
             
             ai_data = {
-                'options': generate_protocol_data('sudo', 'options', 50, use_ai=True),
                 'commands': generate_protocol_data('sudo', 'commands', 100, use_ai=True),
-                'users': generate_protocol_data('sudo', 'users', 30, use_ai=True),
-                'arguments': generate_protocol_data('sudo', 'arguments', 80, use_ai=True),
-                'env_vars': generate_protocol_data('sudo', 'env_vars', 25, use_ai=True)
             }
-            
-            print(f"✅ AI 生成了 {len(ai_data['options'])} 个选项变异")
             print(f"✅ AI 生成了 {len(ai_data['commands'])} 个命令变异")
-            print(f"✅ AI 生成了 {len(ai_data['users'])} 个用户变异")
             
             return ai_data
             
@@ -91,177 +84,6 @@ class AFLSudoSeedGenerator:
             'env_vars': ['PATH', 'HOME', 'USER', 'SHELL', 'TERM']
         }
 
-    def generate_basic_seeds(self, ai_data: Dict[str, List[str]]) -> List[str]:
-        """生成基础 sudo 命令种子"""
-        seeds = []
-        
-        # 1. 简单命令
-        for cmd in ai_data['commands'][:50]:
-            seeds.append(f"{cmd}")
-        
-        # 2. 带选项的命令
-        for opt in ai_data['options'][:30]:
-            for cmd in self.base_commands[:10]:
-                if len(opt) == 1:
-                    seeds.append(f"-{opt} {cmd}")
-                else:
-                    seeds.append(f"--{opt} {cmd}")
-        
-        # 3. 指定用户
-        for user in ai_data['users'][:20]:
-            for cmd in self.base_commands[:10]:
-                seeds.append(f"-u {user} {cmd}")
-        
-        # 4. 组合选项
-        for user in ai_data['users'][:10]:
-            for opt in ai_data['options'][:10]:
-                for cmd in self.base_commands[:5]:
-                    if len(opt) == 1:
-                        seeds.append(f"-u {user} -{opt} {cmd}")
-                    else:
-                        seeds.append(f"-u {user} --{opt} {cmd}")
-        
-        return seeds
-
-    def generate_dangerous_seeds(self) -> List[str]:
-        """生成危险命令种子（用于安全测试）"""
-        dangerous_seeds = [
-            # CVE-2021-3156 (Baron Samedit) 相关
-            "-u#-1 /bin/bash",
-            "-u#4294967295 /bin/sh", 
-            "-g#-1 /bin/bash",
-            "-s /",
-            "-s \\",
-            
-            # 缓冲区溢出测试
-            "" + "A" * 1000,
-            "-u " + "x" * 500 + " /bin/sh",
-            "--user=" + "y" * 1000,
-            
-            # 命令注入和转义
-            "ls; id",
-            "ls && id", 
-            "ls || id",
-            "ls `id`",
-            "ls $(whoami)",
-            "ls | id",
-            "'rm -rf /'",
-            '"rm -rf /"',
-            "ls ../../../etc/passwd",
-            
-            # 环境变量操作
-            "PATH=/tmp:/bin ls",
-            "HOME=/tmp bash",
-            "SHELL=/bin/bash -s",
-            "LD_PRELOAD=/tmp/evil.so /bin/ls",
-            
-            # 特权提升
-            "chmod 4755 /bin/sh",
-            "chown root:root /tmp/shell",
-            "cp /bin/sh /tmp/rootshell",
-            
-            # 文件系统攻击
-            "rm -rf /",
-            "rm -rf /*", 
-            "chmod 777 /etc/passwd",
-            "chmod 777 /etc/shadow",
-            "cat /etc/shadow",
-            "vim /etc/passwd",
-        ]
-        
-        return dangerous_seeds
-
-    def generate_boundary_seeds(self) -> List[str]:
-        """生成边界值测试种子"""
-        boundary_seeds = []
-        
-        # 长度边界测试
-        for length in [100, 255, 256, 500, 1000, 2000, 4096, 8192]:
-            boundary_seeds.append("" + "A" * length)
-            boundary_seeds.append("-u " + "x" * length)
-            boundary_seeds.append("--user=" + "y" * length)
-        
-        # 特殊字符测试
-        special_chars = [
-            "\x00", "\x01", "\x02", "\x7f", "\x80", "\xff",
-            "\n", "\r", "\t", "\v", "\f", "\b", "\a"
-        ]
-        
-        for char in special_chars:
-            boundary_seeds.append(f"ls{char}")
-            boundary_seeds.append(f"{char}ls")
-            boundary_seeds.append(f"-u{char}root ls")
-        
-        # Unicode 测试
-        unicode_tests = [
-            "测试",
-            "ñoño",
-            "🚀test",
-            "\u0000test",
-            "\uffff",
-        ]
-        boundary_seeds.extend(unicode_tests)
-        
-        # 格式字符串测试
-        format_tests = [
-            "%s%s%s%s",
-            "%n%n%n%n",
-            "%x%x%x%x",
-            "%p%p%p%p",
-            "%d%d%d%d",
-        ]
-        boundary_seeds.extend(format_tests)
-        
-        return boundary_seeds
-
-    def generate_environment_seeds(self, ai_data: Dict[str, List[str]]) -> List[str]:
-        """生成环境变量相关种子"""
-        env_seeds = []
-        
-        # 环境变量设置
-        for env_var in ai_data['env_vars']:
-            env_seeds.append(f"{env_var}=malicious_value /bin/ls")
-            env_seeds.append(f"{env_var}=/tmp /bin/bash")
-            env_seeds.append(f"{env_var}='' /bin/sh")
-        
-        # 多个环境变量
-        env_seeds.append("PATH=/tmp HOME=/tmp USER=root /bin/bash")
-        env_seeds.append("SHELL=/bin/bash TERM=xterm /bin/sh")
-        
-        # 环境变量注入
-        env_seeds.append("PATH=$PATH:/tmp /bin/ls")
-        env_seeds.append("HOME=$(pwd) /bin/bash")
-        
-        return env_seeds
-
-    def generate_cve_specific_seeds(self) -> List[str]:
-        """生成针对已知 CVE 的测试种子"""
-        cve_seeds = []
-        
-        # CVE-2021-3156 (Baron Samedit)
-        cve_seeds.extend([
-            "-s /",
-            "-s \\",
-            "-s '\\'",
-            '-s "\\"',
-            "-u#-1 /bin/bash",
-            "-u#4294967295 /bin/sh",
-        ])
-        
-        # CVE-2019-14287 (用户ID绕过)
-        cve_seeds.extend([
-            "-u#-1 id",
-            "-u#4294967295 whoami", 
-            "-u ALL /bin/bash",
-        ])
-        
-        # CVE-2017-1000367 (get_process_ttyname)
-        cve_seeds.extend([
-            "" + "A" * 1024,
-            "-u root " + "B" * 512,
-        ])
-        
-        return cve_seeds
 
     def save_seed(self, content: str, prefix: str = "sudo", seed_type: str = "basic") -> bool:
         """保存单个种子文件"""
@@ -284,29 +106,29 @@ class AFLSudoSeedGenerator:
         
         # 获取 AI 增强数据
         ai_data = self.generate_ai_enhanced_data()
+        print(f"🧠 AI 数据生成完成: {ai_data}")
+        # # 生成不同类型的种子
+        all_seeds = ai_data.get('commands', [])
         
-        # 生成不同类型的种子
-        all_seeds = []
+        # print("📋 生成基础命令种子...")
+        # basic_seeds = self.generate_basic_seeds(ai_data)
+        # all_seeds.extend([(seed, "basic") for seed in basic_seeds])
         
-        print("📋 生成基础命令种子...")
-        basic_seeds = self.generate_basic_seeds(ai_data)
-        all_seeds.extend([(seed, "basic") for seed in basic_seeds])
+        # print("⚠️  生成危险命令种子...")
+        # dangerous_seeds = self.generate_dangerous_seeds()
+        # all_seeds.extend([(seed, "dangerous") for seed in dangerous_seeds])
         
-        print("⚠️  生成危险命令种子...")
-        dangerous_seeds = self.generate_dangerous_seeds()
-        all_seeds.extend([(seed, "dangerous") for seed in dangerous_seeds])
+        # print("🔢 生成边界值测试种子...")
+        # boundary_seeds = self.generate_boundary_seeds()
+        # all_seeds.extend([(seed, "boundary") for seed in boundary_seeds])
         
-        print("🔢 生成边界值测试种子...")
-        boundary_seeds = self.generate_boundary_seeds()
-        all_seeds.extend([(seed, "boundary") for seed in boundary_seeds])
+        # print("🌍 生成环境变量种子...")
+        # env_seeds = self.generate_environment_seeds(ai_data)
+        # all_seeds.extend([(seed, "env") for seed in env_seeds])
         
-        print("🌍 生成环境变量种子...")
-        env_seeds = self.generate_environment_seeds(ai_data)
-        all_seeds.extend([(seed, "env") for seed in env_seeds])
-        
-        print("🚨 生成 CVE 特定种子...")
-        cve_seeds = self.generate_cve_specific_seeds()
-        all_seeds.extend([(seed, "cve") for seed in cve_seeds])
+        # print("🚨 生成 CVE 特定种子...")
+        # cve_seeds = self.generate_cve_specific_seeds()
+        # all_seeds.extend([(seed, "cve") for seed in cve_seeds])
         
         # 随机选择指定数量的种子
         if len(all_seeds) > count:
@@ -319,9 +141,10 @@ class AFLSudoSeedGenerator:
         
         # 保存种子
         print("💾 保存种子文件...")
+        
         saved_count = 0
-        for seed_content, seed_type in selected_seeds:
-            if self.save_seed(seed_content, seed_type=seed_type):
+        for seed_content in selected_seeds:
+            if self.save_seed(seed_content, prefix="sudo", seed_type="command"):
                 saved_count += 1
         
         print(f"✅ 成功生成并保存 {saved_count} 个种子到 {self.output_dir}")
@@ -412,7 +235,7 @@ def main():
     
     parser.add_argument("--output", "-o", default="afl_sudo_seeds",
                        help="种子输出目录 (默认: afl_sudo_seeds)")
-    parser.add_argument("--count", "-c", type=int, default=2000,
+    parser.add_argument("--count", "-c", type=int, default=10,
                        help="生成种子数量 (默认: 2000)")
     parser.add_argument("--create-script", action="store_true",
                        help="创建 AFL++ 启动脚本")

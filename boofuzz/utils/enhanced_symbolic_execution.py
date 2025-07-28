@@ -153,6 +153,8 @@ class ProtocolSymbolicEngine:
         # 使用符号执行生成额外的变异
         try:
             enhanced_data = self._generate_symbolic_mutations(protocol, data_type, base_data, count)
+            # enhanced_data 随机打乱顺序
+            random.shuffle(enhanced_data)
             return enhanced_data[:count]
         except Exception as e:
             # 如果符号执行失败，返回基础数据
@@ -216,7 +218,6 @@ class ProtocolSymbolicEngine:
                     mutations.append(base + ' ' + ''.join(random.choices(string.ascii_letters, k=10)))
                 elif mutation_type == 'malformed':
                     mutations.append(base + '\x00\x01\x02')
-        
         return mutations
     
     def _generate_path_mutations(self, base_data: List[str], count: int) -> List[str]:
@@ -383,7 +384,6 @@ class ProtocolSymbolicEngine:
         """获取AI增强的变异数据"""
         mutation_key = f"{protocol}_{data_type}"
         enhanced_data = base_data.copy()
-
         # 如果有学习数据，应用AI增强
         if mutation_key in self.mutation_success_rates:
             stats = self.mutation_success_rates[mutation_key]
@@ -395,7 +395,8 @@ class ProtocolSymbolicEngine:
                     if success_rate > 0.1:  # 成功率超过10%
                         # 生成更多这种类型的变异
                         enhanced_data.extend(self._generate_pattern_mutations(base_data, pattern_type, count // 4))
-
+        else:
+            print(f"ℹ️  无AI学习数据，使用基础变异数据: {mutation_key}")
         return enhanced_data[:count]
 
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
