@@ -100,6 +100,29 @@ class AFLSudoSeedGenerator:
             print(f"❌ 保存种子失败: {e}")
             return False
 
+    def generate_all_seeds_no_save(self, count: int = 2000) -> List[str]:
+        """生成所有类型的种子但不保存"""
+        print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
+        
+        # 获取 AI 增强数据
+        ai_data = self.generate_ai_enhanced_data()
+        print(f"🧠 AI 数据生成完成: {ai_data}")
+        
+        # 生成不同类型的种子
+        all_seeds = ai_data.get('commands', [])
+        
+        # 随机选择指定数量的种子
+        if len(all_seeds) > count:
+            selected_seeds = random.sample(all_seeds, count)
+        else:
+            selected_seeds = all_seeds
+            while len(selected_seeds) < count:
+                selected_seeds.extend(random.sample(all_seeds, 
+                    min(len(all_seeds), count - len(selected_seeds))))
+        
+        return selected_seeds
+    
+
     def generate_all_seeds(self, count: int = 2000) -> int:
         """生成所有类型的种子"""
         print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
@@ -236,7 +259,7 @@ def main():
     parser.add_argument("--output", "-o", default="afl_sudo_seeds",
                        help="种子输出目录 (默认: afl_sudo_seeds)")
     parser.add_argument("--count", "-c", type=int, default=10,
-                       help="生成种子数量 (默认: 2000)")
+                       help="生成种子数量 (默认: 10)")
     parser.add_argument("--create-script", action="store_true",
                        help="创建 AFL++ 启动脚本")
     parser.add_argument("--target", "-t", default="sudo",
