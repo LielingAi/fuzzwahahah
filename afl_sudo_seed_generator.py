@@ -121,7 +121,7 @@ class AFLSudoSeedGenerator:
                     min(len(all_seeds), count - len(selected_seeds))))
         
         return selected_seeds
-    
+
 
     def generate_all_seeds(self, count: int = 2000) -> int:
         """生成所有类型的种子"""
@@ -242,6 +242,7 @@ echo "查看崩溃: ls afl_output/default/crashes/"
         
         return True
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="AFL++ Sudo 种子生成器 - FuzzWahahah 集成版",
@@ -293,6 +294,10 @@ def main():
         print(f"  afl-fuzz -i {args.output} -o afl_output -- {args.target} @@")
     
     print("\n⚠️  警告: 这些种子包含潜在危险的命令，仅用于安全测试！")
+
+
+
+seed_generator = AFLSudoSeedGenerator()
 
 if __name__ == "__main__":
     main()
