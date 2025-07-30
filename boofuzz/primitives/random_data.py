@@ -36,7 +36,8 @@ class RandomData(Fuzzable):
     """
 
     def __init__(
-        self, name=None, default_value="", min_length=0, max_length=1, max_mutations=25, step=None, *args, **kwargs
+        self, name=None, default_value="", min_length=0, max_length=1, max_mutations=25, step=None, 
+        use_parallel=True, *args, **kwargs
     ):
         default_value = helpers.str_to_bytes(default_value)
 
@@ -46,6 +47,7 @@ class RandomData(Fuzzable):
         self.max_length = max_length
         self.max_mutations = max_mutations
         self.step = step
+        self.use_parallel = use_parallel
         if self.step:
             self.max_mutations = (self.max_length - self.min_length) // self.step + 1
 
@@ -57,6 +59,9 @@ class RandomData(Fuzzable):
             exact_cache_size=2000
         )
 
+        # Parallel generator (lazy initialization)
+        self._parallel_generator = None
+
         # Performance tracking
         self._stats = {
             'total_generated': 0,
@@ -64,7 +69,8 @@ class RandomData(Fuzzable):
             'cache_hits': 0,
             'duplicates_prevented': 0,
             'generation_time': 0.0,
-            'bytes_generated': 0
+            'bytes_generated': 0,
+            'parallel_batches': 0
         }
 
         # Thread safety
@@ -87,52 +93,89 @@ class RandomData(Fuzzable):
     def mutations(self, default_value):
         """
         Mutate the primitive value returning False on completion.
-        Advanced optimized version with caching and deduplication.
-
-        Args:
-            default_value (str): Default value of element.
-
-        Yields:
-            bytes: Mutations
+        Advanced optimized version with caching, deduplication, and optional parallel generation.
         """
         with self._lock:
             start_time = time.time()
-            self._deduplicator.clear()  # Clear for new mutation cycle
+            self._deduplicator.clear()
 
-            local_random = random.Random(0)  # We want constant random numbers to generate reproducible test cases
-
-            for i in range(0, self.get_num_mutations()):
-                # select a random length for this string.
-                if not self.step:
-                    length = local_random.randint(self.min_length, self.max_length)
-                # select a length function of the mutant index and the step.
-                else:
-                    length = self.min_length + i * self.step
-
-                # Check cache first
-                cache_key = (length, i)
-                cached_value = self._data_cache.get(cache_key)
-
-                if cached_value is not None:
-                    self._stats['cache_hits'] += 1
-                    value = cached_value
-                else:
-                    # Generate new random data
-                    value = self._generate_random_bytes_optimized(length, local_random)
-                    # Cache the generated value
-                    self._data_cache.put(cache_key, value)
-
-                # Use advanced deduplication
-                if not self._deduplicator.is_duplicate(value):
-                    self._stats['total_generated'] += 1
-                    self._stats['unique_generated'] += 1
-                    self._stats['bytes_generated'] += len(value)
-                    yield value
-                else:
-                    self._stats['duplicates_prevented'] += 1
+            # Use parallel generation for large mutation counts
+            if self.use_parallel and self.get_num_mutations() > 100:
+                yield from self._parallel_mutations(default_value)
+            else:
+                yield from self._sequential_mutations(default_value)
 
             # Update timing statistics
             self._stats['generation_time'] += time.time() - start_time
+
+    def _sequential_mutations(self, default_value):
+        """Original sequential mutation generation."""
+        local_random = random.Random(0)
+
+        for i in range(0, self.get_num_mutations()):
+            if not self.step:
+                length = local_random.randint(self.min_length, self.max_length)
+            else:
+                length = self.min_length + i * self.step
+
+            cache_key = (length, i)
+            cached_value = self._data_cache.get(cache_key)
+
+            if cached_value is not None:
+                self._stats['cache_hits'] += 1
+                value = cached_value
+            else:
+                value = self._generate_random_bytes_optimized(length, local_random)
+                self._data_cache.put(cache_key, value)
+
+            if not self._deduplicator.is_duplicate(value):
+                self._stats['total_generated'] += 1
+                self._stats['unique_generated'] += 1
+                self._stats['bytes_generated'] += len(value)
+                yield value
+            else:
+                self._stats['duplicates_prevented'] += 1
+
+    def _parallel_mutations(self, default_value):
+        """Parallel mutation generation for large datasets."""
+        if self._parallel_generator is None:
+            self._parallel_generator = ParallelStringGenerator()
+            self._parallel_generator.start()
+
+        # Generate length ranges for parallel processing
+        total_mutations = self.get_num_mutations()
+        batch_size = min(50, total_mutations // 4)
+        
+        local_random = random.Random(0)
+        lengths = []
+        
+        for i in range(total_mutations):
+            if not self.step:
+                length = local_random.randint(self.min_length, self.max_length)
+            else:
+                length = self.min_length + i * self.step
+            lengths.append(length)
+
+        # Use parallel random generation
+        try:
+            for data in self._parallel_generator.generate_random_parallel(
+                min_length=self.min_length,
+                max_length=self.max_length,
+                total_count=total_mutations,
+                batch_size=batch_size
+            ):
+                if not self._deduplicator.is_duplicate(data):
+                    self._stats['total_generated'] += 1
+                    self._stats['unique_generated'] += 1
+                    self._stats['bytes_generated'] += len(data)
+                    self._stats['parallel_batches'] += 1
+                    yield data
+                else:
+                    self._stats['duplicates_prevented'] += 1
+                
+        except Exception as e:
+            print(f"Parallel generation failed, falling back to sequential: {e}")
+            yield from self._sequential_mutations(default_value)
 
     def encode(self, value, mutation_context):
         return value
