@@ -10,6 +10,8 @@ import struct
 import os
 from typing import List, Dict, Any
 from .symbolic_execution import SymbolicFuzzGenerator
+# from ..sessions.session import Session
+from boofuzz import *
 
 class ProtocolSymbolicEngine:
     """协议符号执行引擎 - 统一接口，集成AI学习功能"""
@@ -178,18 +180,20 @@ class ProtocolSymbolicEngine:
         return enhanced_data
     
     def _generate_string_mutations(self, base_data: List[str], count: int) -> List[str]:
-        """生成字符串变异"""
+        """生成字符串变异（溢出用boofuzz原生字节）"""
         mutations = []
         
         for _ in range(count):
             if base_data:
                 base = random.choice(base_data)
-                
-                # 不同的变异策略
                 mutation_type = random.choice(['overflow', 'injection', 'encoding', 'special_chars'])
                 
                 if mutation_type == 'overflow':
-                    mutations.append(base + 'A' * random.randint(100, 1000))
+                    # 用boofuzz生成溢出字节，拼接到base后
+                    overflow_bytes = self.generate_binary_data('overflow', random.randint(100, 1000))
+                    # base转bytes再拼接，最后decode回str（忽略非法字符）
+                    mutation = (base.encode('utf-8', errors='ignore') + overflow_bytes).decode('utf-8', errors='ignore')
+                    mutations.append(mutation)
                 elif mutation_type == 'injection':
                     injections = ["' OR 1=1 --", "<script>alert(1)</script>", "$(whoami)", "../../../etc/passwd"]
                     mutations.append(base + random.choice(injections))
@@ -243,35 +247,43 @@ class ProtocolSymbolicEngine:
         
         return mutations
     
-    def _generate_numeric_mutations(self, base_data: List[int], count: int) -> List[int]:
-        """生成数值变异"""
+    def _generate_numeric_mutations(self, base_data: List[int], count: int) -> List[Any]:
+        """生成数值变异（溢出用boofuzz原生字节）"""
         mutations = []
-        
-        # 边界值和特殊值
-        special_values = [0, 1, -1, 255, 256, 65535, 65536, 0x7FFFFFFF, 0x80000000]
-        
+        # special_values = [0, 1, -1, 255, 256, 65535, 65536, 0x7FFFFFFF, 0x80000000]
+
         for _ in range(count):
-            if random.choice([True, False]) and base_data:
+            mutation_type = random.choice(['int', 'overflow_bytes'])
+            if mutation_type == 'int' and (random.choice([True, False]) and base_data):
                 # 基于现有值的变异
                 base = random.choice(base_data)
                 mutations.append(base + random.randint(-100, 100))
             else:
-                # 特殊值
-                mutations.append(random.choice(special_values))
-        
+                # 用boofuzz生成溢出字节
+                overflow_bytes = self.generate_binary_data('overflow', random.randint(4, 16))
+                mutations.append(overflow_bytes)
         return mutations
     
     def generate_binary_data(self, data_type: str, length: int = 1) -> bytes:
-        """生成二进制数据"""
+        """用 boofuzz 原生接口生成原始二进制数据"""
         if data_type == 'random':
-            length = length or random.randint(1, 1024)
-            return bytes([random.randint(0, 255) for _ in range(length)])
+            s_initialize("random")
+            s_random(max_length=length)
+            req = Request("random")
+            req.render()
+            return req.render()
         elif data_type == 'overflow':
-            length = length or random.randint(1000, 10000)
-            return b'A' * length
+            s_initialize("overflow")
+            s_bytes(b"A" * length)
+            req = Request("overflow")
+            req.render()
+            return req.render()
         elif data_type == 'null_bytes':
-            length = length or random.randint(10, 100)
-            return b'\x00' * length
+            s_initialize("null_bytes")
+            s_bytes(b"\x00" * length)
+            req = Request("null_bytes")
+            req.render()
+            return req.render()
         elif data_type == 'format_string':
             return b'%s%s%s%s%s%s%s%s%s%s%n%n%n%n%n%n%n%n%n%n'
         else:
@@ -400,44 +412,84 @@ class ProtocolSymbolicEngine:
         return enhanced_data[:count]
 
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
-        """根据成功模式生成变异"""
-        mutations = []
+        """遗传算法生成智能变异"""
+        import random
 
-        for base_item in base_data[:min(len(base_data), count)]:
-            base_str = str(base_item)
+        # 1. 初始种群
+        population = []
+        base_strs = [str(item) for item in base_data[:min(len(base_data), count)]]
+        # 典型payload模板
+        pattern_templates = {
+            'overflow': [
+                lambda b: b + 'A' * 1000,
+                lambda b: b + 'A' * 4096,
+                lambda b: 'A' * 8192 + b
+            ],
+            'sql_injection': [
+                lambda b: b + "' OR 1=1--",
+                lambda b: b + "' UNION SELECT NULL--",
+                lambda b: b + "'; DROP TABLE test--"
+            ],
+            'xss': [
+                lambda b: b + "<script>alert('xss')</script>",
+                lambda b: b + "<img src=x onerror=alert('xss')>",
+                lambda b: b + "<svg onload=alert('xss')>"
+            ],
+            'path_traversal': [
+                lambda b: b + "../../../etc/passwd",
+                lambda b: b + "..\\..\\..\\windows\\system32\\config\\sam",
+                lambda b: b + "....//....//....//etc/passwd"
+            ],
+            'format_string': [
+                lambda b: b + "%s%s%s%s%s%s%s%s",
+                lambda b: b + "%x%x%x%x%x%x%x%x",
+                lambda b: b + "%n%n%n%n%n%n%n%n"
+            ]
+        }
+        # 生成初始种群
+        for b in base_strs:
+            if pattern_type in pattern_templates:
+                for tpl in pattern_templates[pattern_type]:
+                    population.append(tpl(b))
+            else:
+                population.append(b)
 
-            if pattern_type == 'overflow':
-                mutations.extend([
-                    base_str + 'A' * 1000,
-                    base_str + 'A' * 4096,
-                    'A' * 8192 + base_str
-                ])
-            elif pattern_type == 'sql_injection':
-                mutations.extend([
-                    base_str + "' OR 1=1--",
-                    base_str + "' UNION SELECT NULL--",
-                    base_str + "'; DROP TABLE test--"
-                ])
-            elif pattern_type == 'xss':
-                mutations.extend([
-                    base_str + "<script>alert('xss')</script>",
-                    base_str + "<img src=x onerror=alert('xss')>",
-                    base_str + "<svg onload=alert('xss')>"
-                ])
-            elif pattern_type == 'path_traversal':
-                mutations.extend([
-                    base_str + "../../../etc/passwd",
-                    base_str + "..\\..\\..\\windows\\system32\\config\\sam",
-                    base_str + "....//....//....//etc/passwd"
-                ])
-            elif pattern_type == 'format_string':
-                mutations.extend([
-                    base_str + "%s%s%s%s%s%s%s%s",
-                    base_str + "%x%x%x%x%x%x%x%x",
-                    base_str + "%n%n%n%n%n%n%n%n"
-                ])
+        # 2. 遗传算法参数
+        max_gen = 3
+        pop_size = min(32, len(population))
+        mutation_rate = 0.3
 
-        return mutations[:count]
+        # 3. 适应度函数（简单用长度和特殊字符比例）
+        def fitness(s):
+            score = len(s)
+            score += sum(1 for c in s if not c.isalnum())
+            return score
+
+        # 4. 进化
+        for _ in range(max_gen):
+            # 选择
+            selected = random.choices(population, k=pop_size)
+            # 交叉
+            children = []
+            for _ in range(pop_size // 2):
+                p1, p2 = random.sample(selected, 2)
+                cut = random.randint(1, min(len(p1), len(p2)) - 1) if min(len(p1), len(p2)) > 1 else 1
+                child = p1[:cut] + p2[cut:]
+                children.append(child)
+            # 变异
+            for i in range(len(children)):
+                if random.random() < mutation_rate:
+                    c = list(children[i])
+                    if c:
+                        idx = random.randint(0, len(c) - 1)
+                        c[idx] = random.choice("!@#$%^&*()_+-=;:'\"[]{}|,.<>/?0123456789")
+                        children[i] = ''.join(c)
+            # 合并并选优
+            population += children
+            population = sorted(set(population), key=fitness, reverse=True)[:pop_size]
+
+        # 5. 返回多样化结果
+        return random.sample(population, min(count, len(population)))
 
     def save_learning_data(self):
         """保存AI学习数据"""

@@ -15,7 +15,7 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 #try:
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data
+from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data
 ENHANCED_MODE = True
 print("✅ 已启用 FuzzWahahah AI 增强模式")
 #except ImportError:
@@ -84,7 +84,7 @@ class AFLSudoSeedGenerator:
             'env_vars': ['PATH', 'HOME', 'USER', 'SHELL', 'TERM']
         }
 
-
+    
     def save_seed(self, content: str, prefix: str = "sudo", seed_type: str = "basic") -> bool:
         """保存单个种子文件"""
         # 使用更有意义的文件名
@@ -100,7 +100,7 @@ class AFLSudoSeedGenerator:
             print(f"❌ 保存种子失败: {e}")
             return False
 
-    def generate_all_seeds_no_save(self, count: int = 2000) -> List[str]:
+    def generate_all_seeds_no_save(self, count: int = 1) -> List[str]:
         """生成所有类型的种子但不保存"""
         print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
         
@@ -299,5 +299,15 @@ def main():
 
 seed_generator = AFLSudoSeedGenerator()
 
+
+
+def test():
+    _seed = seed_generator.generate_all_seeds_no_save(count=1)
+    # random.shuffle(_seed)
+    print(_seed[-1])
+    print(learn_from_test_result('sudo', 'commands', _seed[-1], {'crashed': True}))
+    save_ai_learning_data('sudo')
+
 if __name__ == "__main__":
-    main()
+    #main()
+    test()

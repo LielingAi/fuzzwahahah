@@ -98,7 +98,7 @@ def create_http2_requests():
     # 5. HTTP/2 WINDOW_UPDATE Frame
     s_initialize("HTTP2_WINDOW_UPDATE")
     
-    s_size(, name="frame_length", endian=">")
+    s_size(name="frame_length", endian=">")
     s_byte(8, name="frame_type")
     s_byte(0, name="flags")
     s_dword(0, name="stream_id", endian=">")

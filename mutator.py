@@ -2,8 +2,6 @@
 from afl_sudo_seed_generator import seed_generator
 
 
-counter_dict = {}
-
 def init(seed):
     """
     Called once when AFLFuzz starts up. Used to seed our RNG.
@@ -45,9 +43,8 @@ def fuzz(buf, add_buf, max_size):
         必须返回变异后的数据，不能修改原地的 buf。
         如果什么都不想变异，可以返回原数据或者空 bytes（返回 0 长度会被 AFL++ 认为此轮跳过）。
     """
-    global counter_dict
     # ret = bytearray(100)
-
+    _seed = seed_generator.generate_all_seeds_no_save(count=1)
     # ret[:3] = random.choice(COMMANDS)
 
     return buf
