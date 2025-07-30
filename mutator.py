@@ -45,7 +45,7 @@ def fuzz(buf, add_buf, max_size):
     """
     # ret = bytearray(100)
     global last_output
-    _seed = seed_generator.generate_all_seeds_no_save(count=100)
+    _seed = seed_generator.generate_all_seeds_no_save(buf.decode('utf-8'), count=100)
     last_output = _seed[-1]
     # ret[:3] = random.choice(COMMANDS)
     return bytearray(_seed[-1], encoding='utf-8')

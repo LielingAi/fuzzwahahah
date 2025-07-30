@@ -15,7 +15,7 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 #try:
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data
+from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data, grenerate_ai_enhanced_data
 ENHANCED_MODE = True
 print("✅ 已启用 FuzzWahahah AI 增强模式")
 #except ImportError:
@@ -100,27 +100,28 @@ class AFLSudoSeedGenerator:
             print(f"❌ 保存种子失败: {e}")
             return False
 
-    def generate_all_seeds_no_save(self, count: int = 1) -> List[str]:
+    def generate_all_seeds_no_save(self, seed_data, count: int = 1) -> List[str]:
         """生成所有类型的种子但不保存"""
         print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
         
         # 获取 AI 增强数据
-        ai_data = self.generate_ai_enhanced_data()
+        # ai_data = self.generate_ai_enhanced_data()
+        ai_data = grenerate_ai_enhanced_data("sudo", "commands", [seed_data], count)
         print(f"🧠 AI 数据生成完成: {ai_data}")
         
         # 生成不同类型的种子
-        all_seeds = ai_data.get('commands', [])
+        # all_seeds = ai_data
         
         # 随机选择指定数量的种子
-        if len(all_seeds) > count:
-            selected_seeds = random.sample(all_seeds, count)
-        else:
-            selected_seeds = all_seeds
-            while len(selected_seeds) < count:
-                selected_seeds.extend(random.sample(all_seeds, 
-                    min(len(all_seeds), count - len(selected_seeds))))
+        # if len(all_seeds) > count:
+        #     selected_seeds = random.sample(all_seeds, count)
+        # else:
+        #     selected_seeds = all_seeds
+        #     while len(selected_seeds) < count:
+        #         selected_seeds.extend(random.sample(all_seeds, 
+        #             min(len(all_seeds), count - len(selected_seeds))))
         
-        return selected_seeds
+        return ai_data[-1]
 
 
     def generate_all_seeds(self, count: int = 2000) -> int:
@@ -173,7 +174,7 @@ class AFLSudoSeedGenerator:
         print(f"✅ 成功生成并保存 {saved_count} 个种子到 {self.output_dir}")
         return saved_count
     
-    def save_seed(self, seed_content: str, prefix: str = "sudo", seed_type: str = "command") -> bool:
+    def save_ai_seed(self, seed_content: str, prefix: str = "sudo", seed_type: str = "command") -> bool:
         print(learn_from_test_result(prefix, seed_type, seed_content, {'crashed': True}))
         save_ai_learning_data('sudo')
         return True
@@ -307,11 +308,12 @@ seed_generator = AFLSudoSeedGenerator()
 
 
 def test():
-    _seed = seed_generator.generate_all_seeds_no_save(count=1)
+    _seed = grenerate_ai_enhanced_data("sudo", "commands", ["cat /etc/passwd"], 100)
+    print(_seed)
     # random.shuffle(_seed)
-    print(_seed[-1])
-    print(learn_from_test_result('sudo', 'commands', _seed[-1], {'crashed': True}))
-    save_ai_learning_data('sudo')
+    # print(_seed[-1])
+    # print(learn_from_test_result('sudo', 'commands', _seed[-1], {'crashed': True}))
+    # save_ai_learning_data('sudo')
 
 if __name__ == "__main__":
     #main()

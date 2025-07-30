@@ -269,9 +269,23 @@ class ProtocolSymbolicEngine:
         if data_type == 'random':
             s_initialize("random")
             s_random(max_length=length)
-            req = Request("random")
-            req.render()
-            return req.render()
+            
+            block = s_get("random")
+            root_block = block.children[0]
+            # 获取可能的变异数
+            mutations = root_block.num_mutations()
+            print(f"Total mutations: {mutations}")
+
+            payloads = []
+            for i in range(mutations):
+                root_block.mutate(i)
+                data = root_block.render()
+                payloads.append(data)
+                print(f"[{i}] {repr(data)}")
+
+            # #req.render()
+            # print(s_get("random"))
+            return b""
         elif data_type == 'overflow':
             s_initialize("overflow")
             s_bytes(b"A" * length)
@@ -418,42 +432,44 @@ class ProtocolSymbolicEngine:
         # 1. 初始种群
         population = []
         base_strs = [str(item) for item in base_data[:min(len(base_data), count)]]
+        population = self.generate_binary_data("random", 1000)
         # 典型payload模板
-        pattern_templates = {
-            'overflow': [
-                lambda b: b + 'A' * 1000,
-                lambda b: b + 'A' * 4096,
-                lambda b: 'A' * 8192 + b
-            ],
-            'sql_injection': [
-                lambda b: b + "' OR 1=1--",
-                lambda b: b + "' UNION SELECT NULL--",
-                lambda b: b + "'; DROP TABLE test--"
-            ],
-            'xss': [
-                lambda b: b + "<script>alert('xss')</script>",
-                lambda b: b + "<img src=x onerror=alert('xss')>",
-                lambda b: b + "<svg onload=alert('xss')>"
-            ],
-            'path_traversal': [
-                lambda b: b + "../../../etc/passwd",
-                lambda b: b + "..\\..\\..\\windows\\system32\\config\\sam",
-                lambda b: b + "....//....//....//etc/passwd"
-            ],
-            'format_string': [
-                lambda b: b + "%s%s%s%s%s%s%s%s",
-                lambda b: b + "%x%x%x%x%x%x%x%x",
-                lambda b: b + "%n%n%n%n%n%n%n%n"
-            ]
-        }
-        # 生成初始种群
-        for b in base_strs:
-            if pattern_type in pattern_templates:
-                for tpl in pattern_templates[pattern_type]:
-                    population.append(tpl(b))
-            else:
-                population.append(b)
+        # pattern_templates = {
+        #     'overflow': [
+        #         lambda b: b + 'A' * 1000,
+        #         lambda b: b + 'A' * 4096,
+        #         lambda b: 'A' * 8192 + b
+        #     ],
+        #     'sql_injection': [
+        #         lambda b: b + "' OR 1=1--",
+        #         lambda b: b + "' UNION SELECT NULL--",
+        #         lambda b: b + "'; DROP TABLE test--"
+        #     ],
+        #     'xss': [
+        #         lambda b: b + "<script>alert('xss')</script>",
+        #         lambda b: b + "<img src=x onerror=alert('xss')>",
+        #         lambda b: b + "<svg onload=alert('xss')>"
+        #     ],
+        #     'path_traversal': [
+        #         lambda b: b + "../../../etc/passwd",
+        #         lambda b: b + "..\\..\\..\\windows\\system32\\config\\sam",
+        #         lambda b: b + "....//....//....//etc/passwd"
+        #     ],
+        #     'format_string': [
+        #         lambda b: b + "%s%s%s%s%s%s%s%s",
+        #         lambda b: b + "%x%x%x%x%x%x%x%x",
+        #         lambda b: b + "%n%n%n%n%n%n%n%n"
+        #     ]
+        # }
+        # # 生成初始种群
+        # for b in base_strs:
+        #     if pattern_type in pattern_templates:
+        #         for tpl in pattern_templates[pattern_type]:
+        #             population.append(tpl(b))
+        #     else:
+        #         population.append(b)
 
+        print(population)
         # 2. 遗传算法参数
         max_gen = 3
         pop_size = min(32, len(population))
@@ -648,6 +664,11 @@ def generate_protocol_data(protocol: str, data_type: str, count: int = 10, use_a
         return protocol_symbolic_engine.get_ai_enhanced_mutations(protocol, data_type, base_data, count)
     else:
         return protocol_symbolic_engine.generate_protocol_data(protocol, data_type, count)
+
+
+def grenerate_ai_enhanced_data(protocol: str, data_type: str, base_data: List, count: int) -> List[Any]:
+    """便捷函数：获取AI增强的变异数据"""
+    return protocol_symbolic_engine.get_ai_enhanced_mutations(protocol, data_type, base_data, count)
 
 def generate_binary_data(data_type: str, length: int = 1) -> bytes:
     """便捷函数：生成二进制数据"""
