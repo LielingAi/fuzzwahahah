@@ -106,21 +106,11 @@ class AFLSudoSeedGenerator:
         
         # 获取 AI 增强数据
         # ai_data = self.generate_ai_enhanced_data()
+        load_protocol_ai_data('sudo')
         ai_data = grenerate_ai_enhanced_data("sudo", "commands", [seed_data], count)
-        print(f"🧠 AI 数据生成完成: {ai_data}")
-        
-        # 生成不同类型的种子
-        # all_seeds = ai_data
-        
-        # 随机选择指定数量的种子
-        # if len(all_seeds) > count:
-        #     selected_seeds = random.sample(all_seeds, count)
-        # else:
-        #     selected_seeds = all_seeds
-        #     while len(selected_seeds) < count:
-        #         selected_seeds.extend(random.sample(all_seeds, 
-        #             min(len(all_seeds), count - len(selected_seeds))))
-        
+        random.shuffle(ai_data)        
+
+        save_ai_learning_data('sudo')
         return ai_data[-1]
 
 
