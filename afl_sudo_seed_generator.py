@@ -291,5 +291,5 @@ def test():
     # save_ai_learning_data('sudo')
 
 if __name__ == "__main__":
-    #main()
-    test()
+    main()
+    #test()
