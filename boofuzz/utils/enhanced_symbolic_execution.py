@@ -12,6 +12,8 @@ from typing import List, Dict, Any
 from .symbolic_execution import SymbolicFuzzGenerator
 # from ..sessions.session import Session
 from boofuzz import *
+from boofuzz import s_initialize, s_string, s_bytes, s_get
+
 
 class ProtocolSymbolicEngine:
     """协议符号执行引擎 - 统一接口，集成AI学习功能"""
@@ -428,84 +430,144 @@ class ProtocolSymbolicEngine:
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
         """遗传算法生成智能变异"""
         import random
+        from boofuzz import s_initialize, s_string, s_get
 
-        # 1. 初始种群
+        # 1. 初始种群 - 修复boofuzz集成问题
         population = []
         base_strs = [str(item) for item in base_data[:min(len(base_data), count)]]
-        population = self.generate_binary_data("random", 1000)
-        # 典型payload模板
-        # pattern_templates = {
-        #     'overflow': [
-        #         lambda b: b + 'A' * 1000,
-        #         lambda b: b + 'A' * 4096,
-        #         lambda b: 'A' * 8192 + b
-        #     ],
-        #     'sql_injection': [
-        #         lambda b: b + "' OR 1=1--",
-        #         lambda b: b + "' UNION SELECT NULL--",
-        #         lambda b: b + "'; DROP TABLE test--"
-        #     ],
-        #     'xss': [
-        #         lambda b: b + "<script>alert('xss')</script>",
-        #         lambda b: b + "<img src=x onerror=alert('xss')>",
-        #         lambda b: b + "<svg onload=alert('xss')>"
-        #     ],
-        #     'path_traversal': [
-        #         lambda b: b + "../../../etc/passwd",
-        #         lambda b: b + "..\\..\\..\\windows\\system32\\config\\sam",
-        #         lambda b: b + "....//....//....//etc/passwd"
-        #     ],
-        #     'format_string': [
-        #         lambda b: b + "%s%s%s%s%s%s%s%s",
-        #         lambda b: b + "%x%x%x%x%x%x%x%x",
-        #         lambda b: b + "%n%n%n%n%n%n%n%n"
-        #     ]
-        # }
-        # # 生成初始种群
-        # for b in base_strs:
-        #     if pattern_type in pattern_templates:
-        #         for tpl in pattern_templates[pattern_type]:
-        #             population.append(tpl(b))
-        #     else:
-        #         population.append(b)
+        
+        # 使用boofuzz生成基础变异数据
+        try:
+            s_initialize("pattern_mutation")
+            s_string("test_data", max_len=1000, name="base")
+            request = s_get("pattern_mutation")
+            
+            # 使用get_mutations()方法获取变异数据
+            mutation_count = 0
+            for mutation_list in request.get_mutations():
+                if mutation_count >= min(20, count):
+                    break
+                try:
+                    # mutation_list是Mutation对象列表
+                    for mutation in mutation_list:
+                        if hasattr(mutation, 'value'):
+                            mutation_bytes = mutation.value
+                        else:
+                            mutation_bytes = mutation
+                    
+                    # 转换为字符串
+                    if isinstance(mutation_bytes, bytes):
+                        mutation_str = mutation_bytes.decode('utf-8', errors='ignore')
+                    else:
+                        mutation_str = str(mutation_bytes)
+                    
+                    population.append(mutation_str)
+                    mutation_count += 1
+                    if mutation_count >= min(20, count):
+                        break
+                except Exception as e:
+                    print(f"⚠️ 处理变异数据失败: {e}")
+                    continue
+                
+        except Exception as e:
+            print(f"⚠️ boofuzz生成失败，使用基础数据: {e}")
+            population = base_strs.copy()
 
-        print(population)
+        # 添加模式特定的模板
+        pattern_templates = {
+            'overflow': [
+                lambda b: b + 'A' * 1000,
+                lambda b: b + 'A' * 4096,
+                lambda b: 'A' * 8192 + b
+            ],
+            'sql_injection': [
+                lambda b: b + "' OR 1=1--",
+                lambda b: b + "' UNION SELECT NULL--",
+                lambda b: b + "'; DROP TABLE test--"
+            ],
+            'xss': [
+                lambda b: b + "<script>alert('xss')</script>",
+                lambda b: b + "<img src=x onerror=alert('xss')>",
+                lambda b: b + "<svg onload=alert('xss')>"
+            ],
+            'path_traversal': [
+                lambda b: b + "../../../etc/passwd",
+                lambda b: b + "..\\..\\..\\windows\\system32\\config\\sam",
+                lambda b: b + "....//....//....//etc/passwd"
+            ],
+            'format_string': [
+                lambda b: b + "%s%s%s%s%s%s%s%s",
+                lambda b: b + "%x%x%x%x%x%x%x%x",
+                lambda b: b + "%n%n%n%n%n%n%n%n"
+            ]
+        }
+        
+        # 生成模式特定的初始种群
+        for b in base_strs:
+            if pattern_type in pattern_templates:
+                for tpl in pattern_templates[pattern_type]:
+                    try:
+                        population.append(tpl(b))
+                    except:
+                        population.append(b)
+            else:
+                population.append(b)
+
+        # 确保种群不为空
+        if not population:
+            population = ["test", "data", "mutation"]
+
         # 2. 遗传算法参数
         max_gen = 3
         pop_size = min(32, len(population))
         mutation_rate = 0.3
 
-        # 3. 适应度函数（简单用长度和特殊字符比例）
+        # 3. 适应度函数
         def fitness(s):
+            if not isinstance(s, str):
+                s = str(s)
             score = len(s)
             score += sum(1 for c in s if not c.isalnum())
             return score
 
-        # 4. 进化
+        # 4. 进化过程
         for _ in range(max_gen):
             # 选择
-            selected = random.choices(population, k=pop_size)
+            try:
+                selected = random.choices(population, k=min(pop_size, len(population)))
+            except:
+                selected = population[:pop_size]
+                
             # 交叉
             children = []
             for _ in range(pop_size // 2):
-                p1, p2 = random.sample(selected, 2)
-                cut = random.randint(1, min(len(p1), len(p2)) - 1) if min(len(p1), len(p2)) > 1 else 1
-                child = p1[:cut] + p2[cut:]
-                children.append(child)
+                if len(selected) >= 2:
+                    p1, p2 = random.sample(selected, 2)
+                    p1_str, p2_str = str(p1), str(p2)
+                    if len(p1_str) > 1 and len(p2_str) > 1:
+                        cut = random.randint(1, min(len(p1_str), len(p2_str)) - 1)
+                        child = p1_str[:cut] + p2_str[cut:]
+                        children.append(child)
+                        
             # 变异
             for i in range(len(children)):
                 if random.random() < mutation_rate:
-                    c = list(children[i])
+                    c = list(str(children[i]))
                     if c:
                         idx = random.randint(0, len(c) - 1)
                         c[idx] = random.choice("!@#$%^&*()_+-=;:'\"[]{}|,.<>/?0123456789")
                         children[i] = ''.join(c)
+                        
             # 合并并选优
-            population += children
-            population = sorted(set(population), key=fitness, reverse=True)[:pop_size]
+            population.extend(children)
+            try:
+                population = sorted(set(str(p) for p in population), key=fitness, reverse=True)[:pop_size]
+            except:
+                population = list(set(str(p) for p in population))[:pop_size]
 
         # 5. 返回多样化结果
-        return random.sample(population, min(count, len(population)))
+        result_count = min(count, len(population))
+        return random.sample(population, result_count) if population else ["default_mutation"]
 
     def save_learning_data(self):
         """保存AI学习数据"""

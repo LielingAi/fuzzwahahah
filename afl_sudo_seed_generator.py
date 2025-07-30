@@ -15,7 +15,7 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 #try:
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data, grenerate_ai_enhanced_data
+from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data, grenerate_ai_enhanced_data, load_protocol_ai_data
 ENHANCED_MODE = True
 print("✅ 已启用 FuzzWahahah AI 增强模式")
 #except ImportError:
@@ -308,10 +308,11 @@ seed_generator = AFLSudoSeedGenerator()
 
 
 def test():
+    load_protocol_ai_data('sudo')
     _seed = grenerate_ai_enhanced_data("sudo", "commands", ["cat /etc/passwd"], 100)
-    print(_seed)
+    random.shuffle(_seed)
     # random.shuffle(_seed)
-    # print(_seed[-1])
+    print(_seed[-1])
     # print(learn_from_test_result('sudo', 'commands', _seed[-1], {'crashed': True}))
     # save_ai_learning_data('sudo')
 
