@@ -172,6 +172,11 @@ class AFLSudoSeedGenerator:
         
         print(f"✅ 成功生成并保存 {saved_count} 个种子到 {self.output_dir}")
         return saved_count
+    
+    def save_seed(self, seed_content: str, prefix: str = "sudo", seed_type: str = "command") -> bool:
+        print(learn_from_test_result(prefix, seed_type, seed_content, {'crashed': True}))
+        save_ai_learning_data('sudo')
+        return True
 
     def create_afl_script(self, target_binary: str = "sudo") -> str:
         """创建 AFL++ 启动脚本"""

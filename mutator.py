@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from afl_sudo_seed_generator import seed_generator
 
-
+last_output = ""
 def init(seed):
     """
     Called once when AFLFuzz starts up. Used to seed our RNG.
@@ -44,10 +44,11 @@ def fuzz(buf, add_buf, max_size):
         如果什么都不想变异，可以返回原数据或者空 bytes（返回 0 长度会被 AFL++ 认为此轮跳过）。
     """
     # ret = bytearray(100)
-    _seed = seed_generator.generate_all_seeds_no_save(count=1)
+    global last_output
+    _seed = seed_generator.generate_all_seeds_no_save(count=100)
+    last_output = _seed[-1]
     # ret[:3] = random.choice(COMMANDS)
-
-    return buf
+    return bytearray(_seed[-1], encoding='utf-8')
 
 
 # Uncomment and implement the following methods if you want to use a custom
@@ -187,4 +188,6 @@ def queue_new_entry(filename_new_queue, filename_orig_queue):
 
 
 def introspection():
-    return str(counter_dict)
+    global last_output
+    seed_generator.save_seed(last_output, 'sudo', 'command')
+    return f"last_output crashed! is save ai model updated!"
