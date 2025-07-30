@@ -15,7 +15,10 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 #try:
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result, save_ai_learning_data, grenerate_ai_enhanced_data, load_protocol_ai_data
+from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result,\
+                                                        save_ai_learning_data, grenerate_ai_enhanced_data, \
+                                                        load_protocol_ai_data,generate_binary_data
+# from boofuzz.utils.enhanced_symbolic_execution import generate_binary_data
 ENHANCED_MODE = True
 print("✅ 已启用 FuzzWahahah AI 增强模式")
 #except ImportError:
@@ -123,26 +126,6 @@ class AFLSudoSeedGenerator:
         print(f"🧠 AI 数据生成完成: {ai_data}")
         # # 生成不同类型的种子
         all_seeds = ai_data.get('commands', [])
-        
-        # print("📋 生成基础命令种子...")
-        # basic_seeds = self.generate_basic_seeds(ai_data)
-        # all_seeds.extend([(seed, "basic") for seed in basic_seeds])
-        
-        # print("⚠️  生成危险命令种子...")
-        # dangerous_seeds = self.generate_dangerous_seeds()
-        # all_seeds.extend([(seed, "dangerous") for seed in dangerous_seeds])
-        
-        # print("🔢 生成边界值测试种子...")
-        # boundary_seeds = self.generate_boundary_seeds()
-        # all_seeds.extend([(seed, "boundary") for seed in boundary_seeds])
-        
-        # print("🌍 生成环境变量种子...")
-        # env_seeds = self.generate_environment_seeds(ai_data)
-        # all_seeds.extend([(seed, "env") for seed in env_seeds])
-        
-        # print("🚨 生成 CVE 特定种子...")
-        # cve_seeds = self.generate_cve_specific_seeds()
-        # all_seeds.extend([(seed, "cve") for seed in cve_seeds])
         
         # 随机选择指定数量的种子
         if len(all_seeds) > count:
@@ -298,11 +281,12 @@ seed_generator = AFLSudoSeedGenerator()
 
 
 def test():
-    load_protocol_ai_data('sudo')
-    _seed = grenerate_ai_enhanced_data("sudo", "commands", ["cat /etc/passwd"], 100)
-    random.shuffle(_seed)
+    print(generate_binary_data('format_string', 20))
+    # load_protocol_ai_data('sudo')
+    # _seed = grenerate_ai_enhanced_data("sudo", "commands", ["cat /etc/passwd"], 100)
     # random.shuffle(_seed)
-    print(_seed[-1])
+    # # random.shuffle(_seed)
+    # print(_seed[-1])
     # print(learn_from_test_result('sudo', 'commands', _seed[-1], {'crashed': True}))
     # save_ai_learning_data('sudo')
 

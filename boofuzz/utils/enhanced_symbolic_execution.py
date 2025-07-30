@@ -268,42 +268,181 @@ class ProtocolSymbolicEngine:
     
     def generate_binary_data(self, data_type: str, length: int = 1) -> bytes:
         """用 boofuzz 原生接口生成原始二进制数据"""
-        if data_type == 'random':
-            s_initialize("random")
-            s_random(max_length=length)
+        try:
+            if data_type == 'random':
+                s_initialize("random_data")
+                s_random("", min_length=1, max_length=length, name="random_payload")
+                request = s_get("random_data")
+                # 获取第一个变异数据而不是默认值
+                try:
+                    for mutation_list in request.get_mutations():
+                        random.shuffle(mutation_list)    
+                        for mutation in mutation_list:
+                            if hasattr(mutation, 'value'):
+                                return mutation.value if isinstance(mutation.value, bytes) else bytes(str(mutation.value), 'utf-8', errors='ignore')
+                            else:
+                                return mutation if isinstance(mutation, bytes) else bytes(str(mutation), 'utf-8', errors='ignore')
+                        break  # 只取第一个变异
+                except:
+                    pass
+                # 如果获取变异失败，生成简单随机数据
+                import random
+                return bytes(random.randint(0, 255) for _ in range(random.randint(1, length)))
             
-            block = s_get("random")
-            root_block = block.children[0]
-            # 获取可能的变异数
-            mutations = root_block.num_mutations()
-            print(f"Total mutations: {mutations}")
-
-            payloads = []
-            for i in range(mutations):
-                root_block.mutate(i)
-                data = root_block.render()
-                payloads.append(data)
-                print(f"[{i}] {repr(data)}")
-
-            # #req.render()
-            # print(s_get("random"))
-            return b""
-        elif data_type == 'overflow':
-            s_initialize("overflow")
-            s_bytes(b"A" * length)
-            req = Request("overflow")
-            req.render()
-            return req.render()
-        elif data_type == 'null_bytes':
-            s_initialize("null_bytes")
-            s_bytes(b"\x00" * length)
-            req = Request("null_bytes")
-            req.render()
-            return req.render()
-        elif data_type == 'format_string':
-            return b'%s%s%s%s%s%s%s%s%s%s%n%n%n%n%n%n%n%n%n%n'
-        else:
-            return b'test_data'
+            elif data_type == 'overflow':
+                import random
+                length = random.randint(length, length * 65535)
+                # 使用多种不同的溢出模式（直接使用bytes）
+                overflow_patterns = [
+                    b"A" * length,
+                    b"B" * length, 
+                    b"\x41" * length,
+                    b"\x00" * length,
+                    b"\xff" * length,
+                    b"A" * (length * 2),
+                    b"A" * (length // 2) + b"B" * (length // 2),
+                    b"\x90" * length,  # NOP sled
+                    b"\xcc" * length,  # INT3
+                    b"`" * length,
+                    b"\\" * length,
+                    b"/" * length
+                ]
+                
+                s_initialize("overflow_data")
+                s_group("overflow_payload", values=overflow_patterns)
+                request = s_get("overflow_data")
+                
+                # 先尝试获取变异数据
+                try:
+                    mutations = []
+                    for mutation_list in request.get_mutations():
+                        random.shuffle(mutation_list)
+                        for mutation in mutation_list:
+                            if hasattr(mutation, 'value'):
+                                value = mutation.value
+                                mutations.append(value if isinstance(value, bytes) else value.encode('utf-8', errors='ignore'))
+                            else:
+                                mutations.append(mutation if isinstance(mutation, bytes) else str(mutation).encode('utf-8', errors='ignore'))
+                    
+                    if mutations:
+                        return random.choice(mutations)
+                except:
+                    print("获取overflow变异失败")
+                
+                # 如果变异失败，直接从模式中随机选择
+                return random.choice(overflow_patterns)
+            
+            elif data_type == 'format_string':
+                import random
+                format_patterns = [
+                    # 基础格式字符串
+                    b'%s%s%s%s%s%s%s%s%s%s%n%n%n%n%n%n%n%n%n%n',
+                    b'%x%x%x%x%x%x%x%x%x%x',
+                    b'%d%d%d%d%d%d%d%d%d%d',
+                    b'%p%p%p%p%p%p%p%p%p%p',
+                    
+                    # 混合格式字符串
+                    b'%s%x%d%p%n',
+                    b'%x%s%p%d%n%n',
+                    b'%p%x%s%d%n%n%n',
+                    
+                    # 长格式字符串攻击
+                    b'%s' * 100,
+                    b'%x' * 100,
+                    b'%d' * 100,
+                    b'%p' * 100,
+                    b'%n' * 100,
+                    
+                    # 位置参数格式字符串
+                    b'%1$s%2$s%3$s%4$s%5$n',
+                    b'%10$s%11$s%12$s%13$n',
+                    b'%100$s%101$s%102$n',
+                    
+                    # 宽度和精度格式字符串
+                    b'%1000s%1000x%1000d',
+                    b'%.*s%.*x%.*d',
+                    b'%100000s%100000x',
+                    
+                    # 特殊格式字符串
+                    b'%.1000000s%.1000000x',
+                    b'%#x%#x%#x%#x%#x',
+                    b'%+d%+d%+d%+d%+d',
+                    b'% d% d% d% d% d',
+                    
+                    # 组合攻击模式
+                    b'%s%s%s%s%s%s%s%s%s%s%x%x%x%x%x%n%n%n%n%n',
+                    b'%p%p%p%p%p%d%d%d%d%d%s%s%s%s%s%n%n%n',
+                    b'%x%s%p%d%x%s%p%d%x%s%p%d%n%n%n',
+                    
+                    # 缓冲区溢出结合格式字符串
+                    b'A' * 100 + b'%s%s%s%s%n%n%n%n',
+                    b'A' * 1000 + b'%x%x%x%x%p%p%p%p',
+                    
+                    # 特殊字符组合（使用bytes避免编码问题）
+                    b'%s\x00%x\x00%d\x00%p\x00%n',
+                    b'%s\xff%x\xff%d\xff%p\xff%n',
+                    
+                    # 嵌套格式字符串
+                    b'%%s%%x%%d%%p%%n',
+                    b'%%%s%%%x%%%d%%%p%%%n',
+                ]
+                s_initialize("format_data")
+                s_group("format_payload", values=format_patterns)
+                request = s_get("format_data")
+                
+                # 获取变异数据而不是默认值
+                try:
+                    mutations = []
+                    for mutation_list in request.get_mutations():
+                        random.shuffle(mutation_list)
+                        for mutation in mutation_list:
+                            if hasattr(mutation, 'value'):
+                                value = mutation.value
+                                mutations.append(value if isinstance(value, bytes) else value.encode('utf-8', errors='ignore'))
+                            else:
+                                mutations.append(mutation if isinstance(mutation, bytes) else str(mutation).encode('utf-8', errors='ignore'))
+                    
+                    if mutations:
+                        return random.choice(mutations)
+                except:
+                    pass
+                
+                # 如果变异失败，直接从模式中随机选择
+                return random.choice(format_patterns)
+            
+            else:
+                s_initialize("default_data")
+                s_string("test_data", name="default_payload")
+                request = s_get("default_data")
+                # 获取变异数据
+                try:
+                    for mutation_list in request.get_mutations():
+                        random.shuffle(mutation_list)   
+                        for mutation in mutation_list:
+                            if hasattr(mutation, 'value'):
+                                value = mutation.value
+                                return value if isinstance(value, bytes) else value.encode('utf-8', errors='ignore')
+                            else:
+                                return mutation if isinstance(mutation, bytes) else str(mutation).encode('utf-8', errors='ignore')
+                        break
+                except:
+                    pass
+                return b'test_data'
+            
+        except Exception as e:
+            print(f"⚠️ boofuzz生成二进制数据失败: {e}")
+            # 回退到简单的字节生成
+            if data_type == 'overflow':
+                return b"A" * length
+            elif data_type == 'null_bytes':
+                return b"\x00" * length
+            elif data_type == 'format_string':
+                return b'%s%s%s%s%s%s%s%s%s%s%n%n%n%n%n%n%n%n%n%n'
+            elif data_type == 'random':
+                import random
+                return bytes(random.randint(0, 255) for _ in range(random.randint(1, length)))
+            else:
+                return b'test_data'
     
     def convert_to_bytes(self, data: Any, format_type: str = 'auto') -> bytes:
         """将数据转换为字节格式"""
@@ -429,8 +568,6 @@ class ProtocolSymbolicEngine:
 
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
         """遗传算法生成智能变异"""
-        import random
-        from boofuzz import s_initialize, s_string, s_get
 
         # 1. 初始种群 - 修复boofuzz集成问题
         population = []
