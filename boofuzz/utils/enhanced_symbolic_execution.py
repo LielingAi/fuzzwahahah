@@ -563,7 +563,8 @@ class ProtocolSymbolicEngine:
                         # 生成更多这种类型的变异
                         enhanced_data.extend(self._generate_pattern_mutations(base_data, pattern_type, count // 4))
         else:
-            print(f"ℹ️  无AI学习数据，使用基础变异数据: {mutation_key}")
+            pass
+            #print(f"ℹ️  无AI学习数据，使用基础变异数据: {mutation_key}")
         return enhanced_data[:count]
 
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
@@ -716,7 +717,7 @@ class ProtocolSymbolicEngine:
             }
             with open(self.learning_data_file, 'w', encoding='utf-8') as f:
                 json.dump(learning_data, f, indent=2, ensure_ascii=False)
-            print(f"💾 AI学习数据已保存: {self.learning_data_file}")
+            #print(f"💾 AI学习数据已保存: {self.learning_data_file}")
         except (PermissionError, OSError) as e:
             print(f"❌ 无法保存学习数据文件: {e}")
         except (TypeError, ValueError) as e:
@@ -816,7 +817,7 @@ class ProtocolSymbolicEngine:
             with open(protocol_file, 'w', encoding='utf-8') as f:
                 json.dump(learning_data, f, indent=2, ensure_ascii=False)
 
-            print(f"💾 {protocol.upper()}协议学习数据已保存: {protocol_file}")
+            #print(f"💾 {protocol.upper()}协议学习数据已保存: {protocol_file}")
             return True
 
         except Exception as e:
@@ -840,7 +841,7 @@ class ProtocolSymbolicEngine:
                 self.mutation_success_rates.update(protocol_success_rates)
                 self.crash_patterns.update(protocol_crashes)
 
-                print(f"✅ 加载{protocol.upper()}协议学习数据: {protocol_file}")
+                #print(f"✅ 加载{protocol.upper()}协议学习数据: {protocol_file}")
                 return True
             else:
                 print(f"ℹ️  {protocol.upper()}协议学习数据文件不存在，将创建新的")

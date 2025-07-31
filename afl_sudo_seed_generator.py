@@ -171,10 +171,15 @@ if ! command -v afl-fuzz &> /dev/null; then
 fi
 
 # 设置 AFL++ 环境变量
+
+export PYTHONPATH=/home/kami/fuzzwahh/fuzzwahahah-main
+export AFL_PYTHON_MODULE=sudo_mutator
 export AFL_SKIP_CPUFREQ=1
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export AFL_FAST_CAL=1
 export AFL_AUTORESUME=1
+export AFL_SKIP_BIN_CHECK=1
+export AFL_HANG_TMOUT=1000
 
 # 创建输出目录
 mkdir -p afl_output
