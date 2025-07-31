@@ -6,8 +6,8 @@ import argparse
 from openai import OpenAI  # 需要安装openai包: pip install openai
 
 # 配置信息 
-OPENAI_API_KEY = "sk-685d222ccd554507a72f36cd0908902f"
-MODEL_NAME = "deepseek-chat"  
+OPENAI_API_KEY = "sk-P8rNIdglytrd82CjNPHClslfT6usNcJC4OCy3tWJGU0elGUJ"
+MODEL_NAME = "gpt-4.1-mini"  
 MAN_PAGE_DIR = "man_pages"
 SEED_CORPUS_DIR = "seed_corpus"
 
@@ -44,7 +44,7 @@ def analyze_man_page_with_llm(man_file_path):
     if len(man_content) > 120000:
         man_content = man_content[:60000] + "\n[...TRUNCATED...]\n" + man_content[-60000:]
     
-    client = OpenAI(api_key=OPENAI_API_KEY, base_url="https://api.deepseek.com")
+    client = OpenAI(api_key=OPENAI_API_KEY, base_url="https://api.302.ai")
     
     # 精心设计的提示词 - 核心逻辑
     system_prompt = """

@@ -114,7 +114,7 @@ class AFLSudoSeedGenerator:
         random.shuffle(ai_data)        
 
         save_ai_learning_data('sudo')
-        return ai_data[-1]
+        return ai_data
 
 
     def generate_all_seeds(self, count: int = 2000) -> int:
