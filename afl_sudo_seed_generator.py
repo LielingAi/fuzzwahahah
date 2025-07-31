@@ -241,7 +241,7 @@ def main():
         """
     )
     
-    parser.add_argument("--output", "-o", default="afl_sudo_seeds",
+    parser.add_argument("--output", "-o", default="seed_corpus/sudo",
                        help="种子输出目录 (默认: afl_sudo_seeds)")
     parser.add_argument("--count", "-c", type=int, default=10,
                        help="生成种子数量 (默认: 10)")
