@@ -73,13 +73,14 @@ def get_mock_info():
         # 使用AI增强生成Redis INFO字段变异
         redis_versions = generate_protocol_data('redis', 'scores', 5, use_ai=True)
         redis_values = generate_protocol_data('redis', 'values', 8, use_ai=True)
-        
+        redis_os = generate_protocol_data('redis', 'values', 10, use_ai=True)
+        print(f"os == {redis_os}")
         # 基础INFO行
         base_lines = [
             "# Server",
             f"redis_version:{redis_versions[0] if redis_versions else '6.2.5'}",
             "redis_mode:standalone",
-            f"os:{redis_values[6] if len(redis_values) > 6 else 'Linux x86_64'}",
+            f"os:{redis_os}",
             "tcp_port:6379",
             f"uptime_in_days:{redis_values[0] if redis_values else '1'}",
             "# Clients",
