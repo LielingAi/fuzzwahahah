@@ -72,9 +72,11 @@ def get_mock_info():
     try:
         # 使用AI增强生成Redis INFO字段变异
         redis_versions = generate_protocol_data('redis', 'scores', 5, use_ai=True)
+        redis_versions = redis_versions[-1]
         redis_values = generate_protocol_data('redis', 'values', 8, use_ai=True)
+        redis_values = redis_values[-1]
         redis_os = generate_protocol_data('redis', 'values', 10, use_ai=True)
-        print(f"os == {redis_os}")
+        redis_os = redis_os[-1]
         # 基础INFO行
         base_lines = [
             "# Server",
@@ -103,7 +105,7 @@ def get_mock_info():
         print(f"⚠️ boofuzz变异生成失败，使用基础数据: {e}")
         base_lines = [
             "# Server",
-            "redis_version:6.2.5<script>alert('XSS')</script>",
+            "redis_version:6.2.5",
             "redis_mode:standalone", 
             "os:Linux x86_64",
             "tcp_port:6379",
