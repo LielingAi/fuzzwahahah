@@ -1,5 +1,6 @@
 import socket
 import re
+import random
 from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data, generate_binary_data
 
 def parse_resp(data):
@@ -76,6 +77,7 @@ def get_mock_info():
         redis_values = generate_protocol_data('redis', 'values', 8, use_ai=True)
         redis_values = redis_values[-1]
         redis_os = generate_protocol_data('redis', 'values', 10, use_ai=True)
+        random.shuffle(redis_os)
         redis_os = redis_os[-1]
         # 基础INFO行
         base_lines = [

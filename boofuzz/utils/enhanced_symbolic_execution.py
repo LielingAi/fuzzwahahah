@@ -268,23 +268,38 @@ class ProtocolSymbolicEngine:
     
     def generate_binary_data(self, data_type: str, length: int = 1) -> bytes:
         """用 boofuzz 原生接口生成原始二进制数据"""
+        import random
         try:
             if data_type == 'random':
-                s_initialize("random_data")
+                # 清理可能存在的同名请求
+                if "random_data" in blocks.REQUESTS:
+                    del blocks.REQUESTS["random_data"]
+
+                # 使用时间戳创建唯一的请求名，避免缓存问题
+                import time
+                unique_name = f"random_data_{int(time.time() * 1000000)}"
+
+                s_initialize(unique_name)
                 s_random("", min_length=1, max_length=length, name="random_payload")
-                request = s_get("random_data")
-                # 获取第一个变异数据而不是默认值
+                request = s_get(unique_name)
+
+                # 获取随机变异数据
                 try:
+                    mutations = []
                     for mutation_list in request.get_mutations():
-                        random.shuffle(mutation_list)    
                         for mutation in mutation_list:
                             if hasattr(mutation, 'value'):
-                                return mutation.value if isinstance(mutation.value, bytes) else bytes(str(mutation.value), 'utf-8', errors='ignore')
+                                value = mutation.value if isinstance(mutation.value, bytes) else bytes(str(mutation.value), 'utf-8', errors='ignore')
                             else:
-                                return mutation if isinstance(mutation, bytes) else bytes(str(mutation), 'utf-8', errors='ignore')
-                        break  # 只取第一个变异
-                except:
-                    pass
+                                value = mutation if isinstance(mutation, bytes) else bytes(str(mutation), 'utf-8', errors='ignore')
+                            mutations.append(value)
+                    
+                    if mutations:
+                        # 随机选择一个变异而不是总是第一个
+                        return random.choice(mutations)
+                except Exception as e:
+                    print(f"获取random变异失败: {e}")
+
                 # 如果获取变异失败，生成简单随机数据
                 import random
                 return bytes(random.randint(0, 255) for _ in range(random.randint(1, length)))
@@ -333,59 +348,16 @@ class ProtocolSymbolicEngine:
                 return random.choice(overflow_patterns)
             
             elif data_type == 'format_string':
-                import random
+                # 清理可能存在的同名请求
+                if "format_data" in blocks.REQUESTS:
+                    del blocks.REQUESTS["format_data"]
+                
                 format_patterns = [
-                    # 基础格式字符串
                     b'%s%s%s%s%s%s%s%s%s%s%n%n%n%n%n%n%n%n%n%n',
-                    b'%x%x%x%x%x%x%x%x%x%x',
-                    b'%d%d%d%d%d%d%d%d%d%d',
-                    b'%p%p%p%p%p%p%p%p%p%p',
-                    
-                    # 混合格式字符串
-                    b'%s%x%d%p%n',
-                    b'%x%s%p%d%n%n',
-                    b'%p%x%s%d%n%n%n',
-                    
-                    # 长格式字符串攻击
-                    b'%s' * 100,
-                    b'%x' * 100,
-                    b'%d' * 100,
-                    b'%p' * 100,
-                    b'%n' * 100,
-                    
-                    # 位置参数格式字符串
-                    b'%1$s%2$s%3$s%4$s%5$n',
-                    b'%10$s%11$s%12$s%13$n',
-                    b'%100$s%101$s%102$n',
-                    
-                    # 宽度和精度格式字符串
-                    b'%1000s%1000x%1000d',
-                    b'%.*s%.*x%.*d',
-                    b'%100000s%100000x',
-                    
-                    # 特殊格式字符串
-                    b'%.1000000s%.1000000x',
-                    b'%#x%#x%#x%#x%#x',
-                    b'%+d%+d%+d%+d%+d',
-                    b'% d% d% d% d% d',
-                    
-                    # 组合攻击模式
-                    b'%s%s%s%s%s%s%s%s%s%s%x%x%x%x%x%n%n%n%n%n',
-                    b'%p%p%p%p%p%d%d%d%d%d%s%s%s%s%s%n%n%n',
-                    b'%x%s%p%d%x%s%p%d%x%s%p%d%n%n%n',
-                    
-                    # 缓冲区溢出结合格式字符串
-                    b'A' * 100 + b'%s%s%s%s%n%n%n%n',
-                    b'A' * 1000 + b'%x%x%x%x%p%p%p%p',
-                    
-                    # 特殊字符组合（使用bytes避免编码问题）
-                    b'%s\x00%x\x00%d\x00%p\x00%n',
-                    b'%s\xff%x\xff%d\xff%p\xff%n',
-                    
-                    # 嵌套格式字符串
-                    b'%%s%%x%%d%%p%%n',
-                    b'%%%s%%%x%%%d%%%p%%%n',
+                    b'%x%x%x%x%x%x%x%x%x%x%n%n%n%n%n%n%n%n%n%n',
+                    b'%d%d%d%d%d%d%d%d%d%d%n%n%n%n%n%n%n%n%n%n'
                 ]
+                
                 s_initialize("format_data")
                 s_group("format_payload", values=format_patterns)
                 request = s_get("format_data")
@@ -411,6 +383,10 @@ class ProtocolSymbolicEngine:
                 return random.choice(format_patterns)
             
             else:
+                # 清理可能存在的同名请求
+                if "default_data" in blocks.REQUESTS:
+                    del blocks.REQUESTS["default_data"]
+                
                 s_initialize("default_data")
                 s_string("test_data", name="default_payload")
                 request = s_get("default_data")
@@ -551,21 +527,78 @@ class ProtocolSymbolicEngine:
         """获取AI增强的变异数据"""
         mutation_key = f"{protocol}_{data_type}"
         enhanced_data = base_data.copy()
+        
         # 如果有学习数据，应用AI增强
         if mutation_key in self.mutation_success_rates:
             stats = self.mutation_success_rates[mutation_key]
-
             # 根据成功模式生成更多变异
             for pattern_type, pattern_stats in stats['patterns'].items():
                 if pattern_stats['tests'] > 10:  # 有足够的数据
                     success_rate = pattern_stats['successes'] / pattern_stats['tests']
                     if success_rate > 0.1:  # 成功率超过10%
-                        # 生成更多这种类型的变异
                         enhanced_data.extend(self._generate_pattern_mutations(base_data, pattern_type, count // 4))
         else:
-            pass
-            #print(f"ℹ️  无AI学习数据，使用基础变异数据: {mutation_key}")
+            # 没有AI学习数据时，使用基础变异算法
+            print(f"ℹ️  无AI学习数据，使用基础变异算法: {mutation_key}")
+            
+            # 1. 基础模式变异
+            basic_patterns = ['overflow', 'format_string', 'xss', 'sql_injection', 'path_traversal']
+            for pattern in basic_patterns:
+                enhanced_data.extend(self._generate_pattern_mutations(base_data, pattern, count // 6))
+            
+            # 2. 随机变异
+            enhanced_data.extend(self._generate_random_mutations(base_data, count // 4))
+            
+            # 3. 边界值变异
+            enhanced_data.extend(self._generate_boundary_mutations(base_data, count // 4))
+        
         return enhanced_data[:count]
+
+    def _generate_random_mutations(self, base_data: List, count: int) -> List[Any]:
+        """生成随机变异数据"""
+        mutations = []
+        for base in base_data[:min(len(base_data), count)]:
+            base_str = str(base)
+            
+            # 随机字符替换
+            if base_str:
+                mutated = list(base_str)
+                for _ in range(random.randint(1, min(3, len(mutated)))):
+                    if mutated:
+                        idx = random.randint(0, len(mutated) - 1)
+                        mutated[idx] = random.choice("!@#$%^&*()_+-=[]{}|;':\",./<>?`~")
+                mutations.append(''.join(mutated))
+            
+            # 长度变异
+            mutations.append(base_str + 'A' * random.randint(10, 100))
+            mutations.append('X' * random.randint(5, 50) + base_str)
+            
+            # 特殊字符注入
+            special_chars = ['\x00', '\xff', '\x01', '\x7f', '%n', '%s', '../', '<>', '||']
+            mutations.append(base_str + random.choice(special_chars))
+        
+        return mutations[:count]
+
+    def _generate_boundary_mutations(self, base_data: List, count: int) -> List[Any]:
+        """生成边界值变异数据"""
+        mutations = []
+        boundary_values = [
+            '', '0', '1', '-1', '255', '256', '65535', '65536',
+            'A', 'A' * 255, 'A' * 256, 'A' * 1023, 'A' * 1024,
+            '\x00', '\xff' * 4, '%s' * 10, '../' * 10
+        ]
+        
+        for base in base_data[:min(len(base_data), count // 2)]:
+            base_str = str(base)
+            for boundary in boundary_values[:count // len(base_data) if base_data else 1]:
+                mutations.append(base_str + boundary)
+                mutations.append(boundary + base_str)
+                if len(mutations) >= count:
+                    break
+            if len(mutations) >= count:
+                break
+        
+        return mutations[:count]
 
     def _generate_pattern_mutations(self, base_data: List, pattern_type: str, count: int) -> List[Any]:
         """遗传算法生成智能变异"""
@@ -576,6 +609,10 @@ class ProtocolSymbolicEngine:
         
         # 使用boofuzz生成基础变异数据
         try:
+            # 清理可能存在的同名请求
+            if "pattern_mutation" in blocks.REQUESTS:
+                del blocks.REQUESTS["pattern_mutation"]
+            
             s_initialize("pattern_mutation")
             s_string("test_data", max_len=1000, name="base")
             request = s_get("pattern_mutation")
@@ -860,6 +897,7 @@ def generate_protocol_data(protocol: str, data_type: str, count: int = 10, use_a
     if use_ai:
         # 先获取基础数据（不使用AI增强，避免递归）
         base_data = protocol_symbolic_engine.generate_protocol_data(protocol, data_type, count // 2)
+        print(f"base_data == {base_data}")
         # 然后应用AI增强
         return protocol_symbolic_engine.get_ai_enhanced_mutations(protocol, data_type, base_data, count)
     else:
