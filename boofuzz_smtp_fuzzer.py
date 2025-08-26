@@ -117,7 +117,9 @@ def create_smtp_requests():
         "",
         " SIZE=1000",
         " BODY=8BITMIME",
-        " AUTH=user@example.com"
+        " AUTH=user@example.com",
+        " RET=FULL",
+        " ENVID=12345"
     ]
     s_group("mail_params", values=mail_params)
     
@@ -140,6 +142,15 @@ def create_smtp_requests():
     ] + [f"<{email}>" for email in symbolic_emails[:10]]
     
     s_group("recipient", values=recipient_addresses)
+    
+    # RCPT TO扩展参数
+    rcpt_params = [
+        "",
+        " NOTIFY=SUCCESS,FAILURE,DELAY",
+        " ORCPT=rfc822;user@example.com"
+    ]
+    s_group("rcpt_params", values=rcpt_params)
+    
     s_delim("\r\n")
     
     requests.append(s_get("SMTP_RCPT_TO"))
@@ -162,7 +173,9 @@ def create_smtp_requests():
     subjects = [
         "Test Message",
         "Important Notice",
-        "System Alert"
+        "System Alert",
+        "=?UTF-8?B?5L2g5aW95LiA5Liq56S6?=",  # Base64编码的中文主题
+        "=?ISO-2022-JP?B?GyRCJCIkbCEpJGIkNxsoQg==?="  # JIS编码的日文主题
     ] + symbolic_subjects
     s_group("subject", values=subjects)
     s_delim("\r\n")
@@ -176,14 +189,30 @@ def create_smtp_requests():
     s_string("<test@example.com>")
     s_delim("\r\n")
     
+    s_string("MIME-Version: ")
+    s_string("1.0")
+    s_delim("\r\n")
+    
+    s_string("Content-Type: ")
+    content_types = [
+        "text/plain; charset=utf-8",
+        "text/html; charset=utf-8",
+        "multipart/mixed; boundary=\"frontier\"",
+        "multipart/alternative; boundary=\"boundary42\""
+    ]
+    s_group("content_type", values=content_types)
+    s_delim("\r\n")
+    
     # 空行分隔头部和正文
     s_delim("\r\n")
     
-    # 邮件正文
+    # 邮件正文 (更复杂的MIME结构将在下面定义)
     message_bodies = [
         "This is a test message.",
         "Hello World!",
-        "System notification message."
+        "System notification message.",
+        "This is a message with unicode: 你好世界 🌍",
+        "Message with special chars: \x00\x01\x02\x03"
     ] + symbolic_bodies
     
     s_group("message_body", values=message_bodies)
@@ -214,7 +243,8 @@ def create_smtp_requests():
         "",  # 无数据
         "dGVzdEB0ZXN0LmNvbTpwYXNzd29yZA==",  # test@test.com:password
         "YWRtaW46YWRtaW4=",  # admin:admin
-        "cm9vdDpyb290"  # root:root
+        "cm9vdDpyb290",  # root:root
+        "AHVzZXIAcGFzc3dvcmQ="  # 另一种PLAIN格式 (username\0password)
     ]
     
     s_delim(" ")
@@ -234,7 +264,9 @@ def create_smtp_requests():
         "admin",
         "postmaster",
         "test",
-        "user"
+        "user",
+        "<test@example.com>",  # 验证完整邮箱地址
+        "\"Test User\" <test@example.com>"  # 验证带名字的邮箱地址
     ] + [email.split('@')[0] for email in symbolic_emails[:5]]  # 提取用户名部分
     
     s_group("verify_user", values=verify_users)
@@ -253,7 +285,8 @@ def create_smtp_requests():
         "staff",
         "users",
         "admin",
-        "postmaster"
+        "postmaster",
+        "\"Mailing List\" <list@example.com>"  # 带名字的列表
     ]
     s_group("mailing_list", values=mailing_lists)
     s_delim("\r\n")
@@ -271,14 +304,23 @@ def create_smtp_requests():
         " MAIL",
         " RCPT", 
         " DATA",
-        " AUTH"
+        " AUTH",
+        " VRFY",
+        " EXPN"
     ]
     s_group("help_topic", values=help_topics)
     s_delim("\r\n")
     
     requests.append(s_get("SMTP_HELP"))
     
-    # 9. 恶意SMTP命令 (缓冲区溢出测试)
+    # 9. SMTP STARTTLS命令
+    s_initialize("SMTP_STARTTLS")
+    
+    s_string("STARTTLS\r\n")
+    
+    requests.append(s_get("SMTP_STARTTLS"))
+    
+    # 10. 恶意SMTP命令 (缓冲区溢出测试)
     s_initialize("SMTP_MALICIOUS")
     
     # 超长命令测试
@@ -287,7 +329,8 @@ def create_smtp_requests():
         "MAIL FROM:<" + "x" * 500 + "@example.com>",
         "RCPT TO:<" + "y" * 500 + "@example.com>",
         "VRFY " + "z" * 1000,
-        "EXPN " + "w" * 1000
+        "EXPN " + "w" * 1000,
+        "AUTH PLAIN " + "A" * 1000  # 超长认证数据
     ]
     
     s_group("malicious_command", values=malicious_commands)
@@ -295,7 +338,21 @@ def create_smtp_requests():
     
     requests.append(s_get("SMTP_MALICIOUS"))
     
-    # 10. SMTP QUIT命令
+    # 11. SMTP RSET命令
+    s_initialize("SMTP_RSET")
+    
+    s_string("RSET\r\n")
+    
+    requests.append(s_get("SMTP_RSET"))
+    
+    # 12. SMTP NOOP命令
+    s_initialize("SMTP_NOOP")
+    
+    s_string("NOOP\r\n")
+    
+    requests.append(s_get("SMTP_NOOP"))
+    
+    # 13. SMTP QUIT命令
     s_initialize("SMTP_QUIT")
     
     s_string("QUIT\r\n")
