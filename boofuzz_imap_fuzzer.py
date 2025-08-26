@@ -376,8 +376,7 @@ def main():
             connection=SocketConnection(
                 host=args.target,
                 port=args.port,
-                proto="ssl" if args.ssl else "tcp",
-                timeout=args.timeout
+                proto="ssl" if args.ssl else "tcp"
             )
         ),
         web_port=args.web_port,
