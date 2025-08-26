@@ -5,21 +5,39 @@
     "MAIL FROM",
     "RCPT TO",
     "DATA",
-    "QUIT"
+    "QUIT",
+    "AUTH",
+    "VRFY",
+    "EXPN",
+    "HELP",
+    "STARTTLS",
+    "RSET",
+    "NOOP"
   ],
   "emails": [
     "test@example.com",
     "admin@localhost",
-    "user@test.local"
+    "user@test.local",
+    "<>",
+    "<postmaster>",
+    "<user@example.com>",
+    "<admin@localhost>",
+    "<test@test.local>",
+    "<root>",
+    "<user+tag@example.com>"
   ],
   "subjects": [
-    "Test Subject",
+    "Test Message",
     "Important Notice",
-    "System Alert"
+    "System Alert",
+    "=?UTF-8?B?5L2g5aW95LiA5Liq56S6?=",
+    "=?ISO-2022-JP?B?GyRCJCIkbCEpJGIkNxsoQg==?="
   ],
   "bodies": [
-    "Test message body",
+    "This is a test message.",
     "Hello World!",
-    "System notification"
+    "System notification message.",
+    "This is a message with unicode: 你好世界 🌍",
+    "Message with special chars: \u0000\u0001\u0002\u0003"
   ]
 }

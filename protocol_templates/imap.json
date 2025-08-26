@@ -1,0 +1,66 @@
+{
+  "commands": [
+    "LOGIN",
+    "SELECT",
+    "EXAMINE",
+    "CREATE",
+    "DELETE",
+    "RENAME",
+    "SUBSCRIBE",
+    "UNSUBSCRIBE",
+    "LIST",
+    "LSUB",
+    "STATUS",
+    "APPEND",
+    "CHECK",
+    "CLOSE",
+    "EXPUNGE",
+    "SEARCH",
+    "FETCH",
+    "STORE",
+    "COPY",
+    "UID",
+    "CAPABILITY",
+    "NOOP",
+    "LOGOUT"
+  ],
+  "usernames": [
+    "test",
+    "admin",
+    "user",
+    "root",
+    "postmaster"
+  ],
+  "passwords": [
+    "password",
+    "123456",
+    "admin123",
+    "testpass",
+    ""
+  ],
+  "mailboxes": [
+    "INBOX",
+    "Sent",
+    "Drafts",
+    "Junk",
+    "Trash",
+    "INBOX/SubFolder"
+  ],
+  "search_criteria": [
+    "ALL",
+    "ANSWERED",
+    "DELETED",
+    "FLAGGED",
+    "NEW",
+    "OLD",
+    "RECENT",
+    "SEEN",
+    "UNANSWERED",
+    "UNDELETED",
+    "UNFLAGGED",
+    "UNSEEN",
+    "SUBJECT \"test\"",
+    "FROM \"admin\"",
+    "TO \"user\""
+  ]
+}

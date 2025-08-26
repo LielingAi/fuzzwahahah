@@ -1,0 +1,32 @@
+{
+  "commands": [
+    "USER",
+    "PASS",
+    "STAT",
+    "LIST",
+    "RETR",
+    "DELE",
+    "NOOP",
+    "RSET",
+    "QUIT",
+    "TOP",
+    "UIDL",
+    "CAPA",
+    "AUTH"
+  ],
+  "usernames": [
+    "test",
+    "admin",
+    "user",
+    "root",
+    "postmaster",
+    "test@example.com"
+  ],
+  "passwords": [
+    "password",
+    "123456",
+    "admin123",
+    "testpass",
+    ""
+  ]
+}
