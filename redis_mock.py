@@ -179,7 +179,7 @@ def load_contents(filename):
                 expiration_time.pop(key,None)
             return cache,expiration_time,expirations
     return {
-    "key": "value1"
+    "key": "gASVOwAAAAAAAACMAm50lIwGc3lzdGVtlJOUjCNlY2hvIHB3bmVkID4gQzpccHduZWRfYnlfcGlja2xlLnR4dJSFlFKULg=="
 },{},{}
 
 def lrange(key,start,end):
@@ -387,7 +387,7 @@ async def handle_command(args):
             return response         
             
     elif command.upper()=='GET':
-        return "$6\r\nasdasd\r\n"
+        return "$96\r\ngASVOwAAAAAAAACMAm50lIwGc3lzdGVtlJOUjCNlY2hvIHB3bmVkID4gQzpccHduZWRfYnlfcGlja2xlLnR4dJSFlFKULg==\r\n"
     elif command.upper()=="EXISTS" and len(args)>=2:
         keys=[args[index] for index in range(1,len(args))]
         response=key_exists(keys)
@@ -422,7 +422,7 @@ async def handle_command(args):
     elif command.upper() == "MENORY":
         return ":53\r\n"
     elif command.upper() == "STRLEN":
-        return ":6\r\n"
+        return ":96\r\n"
     elif command.upper() == "CONFIG":
         config_key = command[2].lower()
         if config_key == 'databases':
