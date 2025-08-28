@@ -1,0 +1,24 @@
+From: sender_drNxG@example.com
+To: recipient_wbW5W@example.com
+Subject: Fuzz Test for CVE-XXXX-YYYY - 89WKKTJnW4
+Date: Mon, 01 Jan 2024 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Normal-Header: For comparison - 3S8wbCVmLdXBL2Y
+X-Original-Header-Dot: .This line starts with a dot (Header dot-unstuffing test)
+X-EOB-Test-Header: ..TriggerBugInHeader OVIM4085Aa
+X-Another-Dot-Header: .Another dot test line.
+X-Another-EOB-Header: ..AnotherEOBTriggerZ RlAp0J1U
+
+This is the body of the fuzz test email.
+
+.Hello, this line starts with one dot (Body dot-unstuffing test).
+..This line starts with two dots (original content).
+
+More normal body content.
+
+..TriggerBugInBodyLasQs
+Line after the line that triggers the EOB bug in the body.
+
+End of the email body.
+.
