@@ -59,6 +59,24 @@ def generate_random_string(length=10):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
+def generate_special_random_string(length=10):
+    """
+    生成包含特殊字符的指定长度的随机字符串。
+    包括控制字符、非ASCII字符和常见特殊符号，以增加 fuzzing 的多样性。
+    """
+    # 定义字符集：ASCII字母数字 + 常见特殊符号 + 一些控制字符和非ASCII字符
+    # 注意：避免在关键分隔符位置使用 \r, \n, \x00 可能会破坏邮件结构
+    # 这里主要用于头部值和体部内容的 fuzzing
+    chars = (
+        string.ascii_letters + 
+        string.digits + 
+        "!@#$%^&*()_+-=[]{}|;':\",./<>?" + # 常见符号
+        "\t\x01\x02\x1b\x7f" +             # 控制字符示例 (不含 \r, \n, \x00)
+        "\u202e\u202d"                     # Unicode 控制字符 (RTL override, LTR override)
+    )
+    return ''.join(random.choices(chars, k=length))
+
+
 def create_fuzz_request():
     """
     使用 Boofuzz 原语创建一个可 fuzz 的 POP3 邮件请求。
@@ -74,15 +92,24 @@ def create_fuzz_request():
     # --- 邮件头部部分 ---
     # 使用 `s_string` 和 `s_static` 来定义可 fuzz 和静态的部分
     bf.s_static("From: ")
+    # 在发件人中引入特殊字符 fuzz
     bf.s_string(f'sender_{generate_random_string(5)}@example.com', name="from_header_value")
+    # 可选：增加一个使用特殊字符的变体 fuzz 点
+    # bf.s_string(f'sender_{generate_special_random_string(5)}@example.com', name="from_header_value_special")
     bf.s_static("\\r\\n")
 
     bf.s_static("To: ")
+    # 在收件人中也引入特殊字符 fuzz
     bf.s_string(f'recipient_{generate_random_string(5)}@example.com', name="to_header_value")
+    # 可选：增加一个使用特殊字符的变体 fuzz 点
+    # bf.s_string(f'recipient_{generate_special_random_string(5)}@example.com', name="to_header_value_special")
     bf.s_static("\\r\\n")
 
     bf.s_static("Subject: Fuzz Test for CVE-XXXX-YYYY - ")
+    # 在主题中引入特殊字符 fuzz
     bf.s_string(generate_random_string(10), name="subject_random_part")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(10), name="subject_special_random_part")
     bf.s_static("\\r\\n")
 
     bf.s_static("Date: Mon, 01 Jan 2024 12:00:00 +0000\\r\\n")
@@ -90,7 +117,10 @@ def create_fuzz_request():
     bf.s_static("Content-Type: text/plain; charset=utf-8\\r\\n")
 
     bf.s_static("X-Normal-Header: For comparison - ")
+    # 在普通头部值中引入特殊字符 fuzz
     bf.s_string(generate_random_string(15), name="normal_header_value")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(15), name="normal_header_value_special")
     bf.s_static("\\r\\n")
 
     # --- 添加专门用于触发漏洞的头部 ---
@@ -101,7 +131,20 @@ def create_fuzz_request():
     bf.s_static("X-EOB-Test-Header: ")
     bf.s_static(HEADER_EOB_PATTERN_PREFIX)
     bf.s_static(" ")
+    # 在 EOB 测试头部的随机部分引入特殊字符 fuzz
     bf.s_string(generate_random_string(10), name="eob_header_random_part")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(10), name="eob_header_random_part_special")
+    bf.s_static("\\r\\n")
+    
+    # --- 头部破坏触发点 ---
+    # 利用 B 漏洞在头部注入 `\r\n.`，尝试干扰头部解析
+    # 这个注入可能会让解析器认为头部在此处结束
+    bf.s_static("X-Header-Truncator: ..BoomHeader ")
+    # 在头部破坏触发点的随机部分引入特殊字符 fuzz
+    bf.s_string(generate_random_string(7), name="header_boom_random")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(7), name="header_boom_random_special")
     bf.s_static("\\r\\n")
 
     # 增加更多可 fuzz 的头部，以增加复杂性
@@ -115,40 +158,93 @@ def create_fuzz_request():
     bf.s_static("\\r\\n")
 
     # 使用 Group 来 fuzz 一些常见的头部名
-    header_names = ["X-Custom-Fuzz1", "X-Custom-Fuzz2", "X-Custom-Fuzz3", "X-Powered-By", "X-Version"]
+    header_names = ["X-Custom-Fuzz1", "X-Custom-Fuzz2", "X-Custom-Fuzz3", "X-Powered-By", "X-Version", "MIME-Version", "Content-Type", "Content-Transfer-Encoding"]
     bf.s_group("custom_header_names", values=header_names)
     bf.s_static(": ")
+    # 在自定义头部值中引入特殊字符 fuzz
     bf.s_string("Some fuzzable value ", name="fuzzable_header_value")
     bf.s_string(generate_random_string(5), name="fuzzable_header_random_tail")
-    bf.s_static("\\r\\n")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(5), name="fuzzable_header_random_tail_special")
+    bf.s_static("\r\n")
+
+    # --- 增加 MIME 相关头部 fuzz ---
+    mime_types = ["text/plain", "text/html", "multipart/mixed", "multipart/alternative"]
+    bf.s_static("Content-Type: ")
+    bf.s_group("content_types", values=mime_types)
+    bf.s_static("; charset=")
+    bf.s_string("utf-8", name="charset_value")
+    bf.s_static("\r\n")
+
+    encoding_types = ["7bit", "8bit", "base64", "quoted-printable"]
+    bf.s_static("Content-Transfer-Encoding: ")
+    bf.s_group("transfer_encodings", values=encoding_types)
+    bf.s_static("\r\n")
 
     # --- 邮件头部与体部的分隔符 ---
     bf.s_static("\\r\\n") # This signifies the end of headers
 
     # --- 邮件体部部分 ---
     # 体部也可以被高度 fuzz
-    bf.s_static("This is the body of the fuzz test email.\\r\\n\\r\\n")
+    bf.s_static("This is the body of the fuzz test email.\r\n\r\n")
 
     # 点号转义处理缺失 (Dot-Unstuffing Failure)
     bf.s_static(BODY_DOT_PATTERN)
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     # 添加一行以 .. 开头的内容（原始内容）。
-    bf.s_static("..This line starts with two dots (original content).\\r\\n\\r\\n")
+    bf.s_static("..This line starts with two dots (original content).\r\n\r\n")
 
-    bf.s_static("More normal body content.\\r\\n\\r\\n")
+    bf.s_static("More normal body content.\r\n\r\n")
 
     # EOB 部分匹配失败 (Incorrect Data Write on EOB Partial Match Failure)
+    # --- 简单触发点 ---
     bf.s_static(BODY_EOB_PATTERN_PREFIX)
+    # 在 EOB 测试体部的随机部分引入特殊字符 fuzz
     bf.s_string(generate_random_string(5), name="eob_body_random_part")
-    bf.s_static("\\r\\n")
-    bf.s_static("Line after the line that triggers the EOB bug in the body.\\r\\n\\r\\n")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(5), name="eob_body_random_part_special")
+    bf.s_static("\r\n")
+    bf.s_static("Line after the line that triggers the EOB bug in the body.\r\n\r\n")
+    
+    # --- 链式反应触发点 1 ---
+    # 构造一个能够通过 B 漏洞注入 `\r\n.` 的模式
+    # 注入的 `\r\n.` 会将下一行提升，模拟结构改变
+    bf.s_static("Line before chained reaction trigger.\r\n")
+    bf.s_static("..ChainedReactionTrigger ")
+    # 在链式反应触发点1的随机部分引入特殊字符 fuzz
+    bf.s_string(generate_random_string(8), name="chain_react_1_random")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(8), name="chain_react_1_random_special")
+    bf.s_static("\r\n")
+    # 下一行在被注入的 `\r\n.` 提升后，可能被解析为头部
+    bf.s_static("X-Injected-Header-From-Chain: This line might be seen as a header after B-injection.\r\n")
+    bf.s_static("\r\n")
+
+    # --- 链式反应触发点 2 ---
+    # 更复杂的模式，模拟多级注入
+    bf.s_static("Another line before a complex chained reaction.\r\n")
+    bf.s_static("..ComplexChain ")
+    # 在链式反应触发点2的随机部分引入特殊字符 fuzz
+    bf.s_string(generate_random_string(6), name="chain_react_2_random_a")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(6), name="chain_react_2_random_a_special")
+    bf.s_static(" ")
+    bf.s_string(generate_random_string(4), name="chain_react_2_random_b")
+    # 增加一个使用特殊字符的 fuzz 点
+    bf.s_string(generate_special_random_string(4), name="chain_react_2_random_b_special")
+    bf.s_static("\r\n")
+    # 这个注入可能会进一步影响数据流
+    bf.s_static("Content that follows the complex chain reaction trigger.\r\n\r\n")
 
     # 使用 s_random 添加一大块随机内容以增加 fuzzing 的覆盖面
     bf.s_random("", min_length=50, max_length=500, num_mutations=50, name="large_random_body_block")
-    bf.s_static("\\r\\n\\r\\n")
+    # 可选：增加一个包含特殊字符的随机块
+    # bf.s_random("", min_length=50, max_length=500, num_mutations=50, name="large_random_body_block_with_special_chars", 
+    #            fuzz_values=string.ascii_letters + string.digits + "\x00\x01\x02\x1b\x7f\u202e\u202d!@#$%^&*()_+-=[]{}|;':",./<>?")
+    bf.s_static("\r\n\r\n")
 
-    bf.s_static("End of the email body.\\r\\n")
+    bf.s_static("End of the email body.\r\n")
 
     # POP3 EOB (End of Body marker) - 通常保持静态
     bf.s_static(".\\r\\n")

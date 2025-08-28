@@ -1,0 +1,25 @@
+From: %0Areboot\r\nTo: recipient_qBnyJ@example.com\r\nSubject: Fuzz Test for CVE-XXXX-YYYY - 1MK8EvkDHN\r\nDate: Mon, 01 Jan 2024 12:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nX-Normal-Header: For comparison - 1201aNfdi0kSybN\r\nX-Original-Header-Dot: .This line starts with a dot (Header dot-unstuffing test)\r\nX-EOB-Test-Header: ..TriggerBugInHeader 7mH4Fq93EX\r\nX-Header-Truncator: ..BoomHeader olZ9qjH\r\nX-Another-Dot-Header: .Another dot test line.\r\nX-Another-EOB-Header: ..AnotherEOBTriggerZ jXWSPZli\r\nX-Custom-Fuzz1: Some fuzzable value GXBbb
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+\r\nThis is the body of the fuzz test email.
+
+.Hello, this line starts with one dot (Body dot-unstuffing test).
+..This line starts with two dots (original content).
+
+More normal body content.
+
+..TriggerBugInBody4DwfU
+Line after the line that triggers the EOB bug in the body.
+
+Line before chained reaction trigger.
+..ChainedReactionTrigger 3fFdPNM2
+X-Injected-Header-From-Chain: This line might be seen as a header after B-injection.
+
+Another line before a complex chained reaction.
+..ComplexChain CyjW9G y9Ww
+Content that follows the complex chain reaction trigger.
+
+
+
+End of the email body.
+.\r\n

@@ -3,6 +3,8 @@ import sys
 import os
 import traceback
 import glob
+import base64
+import shutil
 
 # POP3 line terminator as defined by RFC 1939
 POP3_LINE_TERM = b'\r\n'
@@ -21,6 +23,12 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
         self.delay = delay # Delay in seconds between chunks
         self.delete_after_send = delete_after_send # Whether to delete the file after sending
         self._current_mail_file_path = None # Path of the mail file currently being served
+        # For handling SASL AUTH command flow
+        self._awaiting_auth_response_for_mechanism = None
+        # To ensure data is fully sent before closing connection on QUIT
+        self._current_send_task = None
+        self.target_directory = "./fuzzed_pop3_mails_bak"
+        os.makedirs(self.target_directory, exist_ok=True)
 
     def _get_next_mail_file(self):
         """
@@ -62,6 +70,23 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
             parts = message.split(' ')
             command = parts[0].upper() if parts else ""
 
+            # --- Handle Awaiting AUTH Response ---
+            if self._awaiting_auth_response_for_mechanism:
+                # We were waiting for the Base64 encoded initial response line
+                mechanism = self._awaiting_auth_response_for_mechanism
+                # Clear the flag first
+                self._awaiting_auth_response_for_mechanism = None
+                
+                # 'message' contains the Base64 encoded initial response
+                # For fuzzing, we don't need to decode or verify it
+                print(f"[SERVER] (AUTH) Received response line for {mechanism}: {message}")
+                
+                # Simplified: assume authentication is successful for fuzzing
+                self.state = "TRANSACTION"
+                self.transport.write(b"+OK Logged in." + POP3_LINE_TERM)
+                return # Crucial: stop processing this line as a regular command
+            # --- End Handle Awaiting AUTH Response ---
+
             if self.state == "AUTHORIZATION":
                 if command == "USER":
                     # USER name: RFC 1939 Section 6
@@ -72,15 +97,50 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                     # We accept any password
                     self.state = "TRANSACTION"
                     self.transport.write(b"+OK Password accepted" + POP3_LINE_TERM)
+                elif command == "AUTH":
+                    # AUTH mechanism [initial-response]: RFC 1734 / RFC 2595 / RFC 4616 (PLAIN)
+                    # parts = ['AUTH', 'MECHANISM', 'optional_base64_initial_response']
+                    if len(parts) < 2:
+                        self.transport.write(b"-ERR Invalid AUTH command" + POP3_LINE_TERM)
+                        return
+                        
+                    mechanism = parts[1].upper()
+                    
+                    if mechanism != "PLAIN":
+                        self.transport.write(f"-ERR Unsupported authentication mechanism: {mechanism}".encode('utf-8') + POP3_LINE_TERM)
+                        return
+
+                    # Check if initial response is provided
+                    if len(parts) >= 3 and parts[2]:
+                        # Initial response provided in the same line (e.g., AUTH PLAIN <base64>)
+                        # For fuzzing, we can just accept it.
+                        print(f"[SERVER] (AUTH) Received initial response for {mechanism}")
+                        # For fuzzing, assume success
+                        self.state = "TRANSACTION"
+                        self.transport.write(b"+OK Logged in." + POP3_LINE_TERM)
+                    else:
+                        # No initial response provided. RFC requires server to send "+ " 
+                        # and then read the response from the client.
+                        print(f"[SERVER] (AUTH) Waiting for initial response for {mechanism}")
+                        # Set flag and send continuation request
+                        self._awaiting_auth_response_for_mechanism = mechanism
+                        self.transport.write(b"+ " + POP3_LINE_TERM)
                 elif command == "QUIT":
                     # QUIT: RFC 1939 Section 6
                     self.transport.write(b"+OK Bye" + POP3_LINE_TERM)
                     self.transport.close()
                 elif command == "CAPA":
-                    # Optional CAPA command for extended capabilities
-                    # This is not in base RFC 1939 but widely supported
-                    self.transport.write(b"+OK Capability list follows" + POP3_LINE_TERM)
-                    # We don't advertise any specific capabilities for simplicity
+                    # Optional CAPA command for extended capabilities (RFC 2449)
+                    self.transport.write(b"+OK" + POP3_LINE_TERM)
+                    # Advertise capabilities we (partially) support or are common
+                    # Note: Our AUTH is USER/PASS and simplified AUTH PLAIN, not full SASL AUTH command advertisement.
+                    self.transport.write(b"TOP" + POP3_LINE_TERM)
+                    self.transport.write(b"UIDL" + POP3_LINE_TERM)
+                    # Indicate we support USER command authentication
+                    self.transport.write(b"USER" + POP3_LINE_TERM)
+                    # Indicate we support simplified AUTH PLAIN
+                    self.transport.write(b"SASL PLAIN" + POP3_LINE_TERM)
+                    # End of capability list
                     self.transport.write(b"." + POP3_LINE_TERM)
                 else:
                     # -ERR is used for all errors as per RFC 1939
@@ -184,6 +244,15 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                         with open(self._current_mail_file_path, 'rb') as f:
                             mail_data = f.read()
                         print(f"[SERVER] (RETR) Loaded mail from '{self._current_mail_file_path}', {len(mail_data)} bytes.")
+                        if self.delete_after_send and self._current_mail_file_path and os.path.exists(self._current_mail_file_path):
+                            try:
+                                # os.remove(self._current_mail_file_path)
+                                target_path = os.path.join(self.target_directory, os.path.basename(self._current_mail_file_path))
+                                shutil.move(self._current_mail_file_path, target_path)
+
+                                print(f"[SERVER] (RETR) Deleted mail file '{self._current_mail_file_path}'")
+                            except OSError as e:
+                                print(f"[SERVER] (RETR) Failed to delete mail file '{self._current_mail_file_path}': {e}")
                     except FileNotFoundError:
                         print(f"[SERVER] (RETR) Error: File '{self._current_mail_file_path}' not found.")
                         self.transport.write(b"-ERR Mail file not found on server" + POP3_LINE_TERM)
@@ -197,7 +266,8 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                         return
                     
                     # Send the email data asynchronously
-                    asyncio.create_task(self.send_mail_data(mail_data))
+                    # Store the task to allow QUIT to wait for its completion
+                    self._current_send_task = asyncio.create_task(self.send_mail_data(mail_data))
                     
                 elif command == "TOP":
                      # TOP msg n: RFC 1939 Section 8 (Optional)
@@ -238,7 +308,9 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                         self.transport.write(b"-ERR Internal server error reading mail" + POP3_LINE_TERM)
                         return
                     
-                     asyncio.create_task(self.send_top_data(mail_data, lines))
+                     # Send the email data asynchronously
+                     # Store the task to allow QUIT to wait for its completion
+                     self._current_send_task = asyncio.create_task(self.send_top_data(mail_data, lines))
                      
                 elif command == "UIDL":
                     # UIDL [msg]: RFC 1939 Section 8 (Optional)
@@ -278,17 +350,16 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                          
                 elif command == "QUIT":
                     # QUIT: RFC 1939 Section 6
-                    self.state = "AUTHORIZATION" # Reset state for potential new connection
-                    # Do not delete file on QUIT, only on successful RETR send
-                    self._current_mail_file_path = None
-                    self.transport.write(b"+OK Bye" + POP3_LINE_TERM)
-                    self.transport.close()
+                    # Schedule a task to handle the QUIT logic asynchronously
+                    # This allows awaiting the send task event if necessary.
+                    asyncio.create_task(self._handle_quit())
                 elif command == "CAPA":
-                    # Optional CAPA command
-                    self.transport.write(b"+OK Capability list follows" + POP3_LINE_TERM)
-                    # Advertise TOP and UIDL as they are common
+                    # Optional CAPA command for extended capabilities (RFC 2449)
+                    self.transport.write(b"+OK" + POP3_LINE_TERM)
+                    # Advertise common capabilities available in TRANSACTION state
                     self.transport.write(b"TOP" + POP3_LINE_TERM)
                     self.transport.write(b"UIDL" + POP3_LINE_TERM)
+                    # End of capability list
                     self.transport.write(b"." + POP3_LINE_TERM)
                 elif command == "NOOP":
                     # NOOP: RFC 1939 Section 6
@@ -309,22 +380,29 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
         """
         Asynchronously send the full mail data according to RFC 1939.
         This includes the "+OK size" line and the data terminated by ".".
+        Implements byte-stuffing as per RFC 1939 Section 3.
         """
         try:
-            # 1. Send initial response "+OK octets"
+            # 1. Apply byte-stuffing: prepend '.' to lines starting with '.'
+            stuffed_mail_data = self._apply_byte_stuffing(mail_data)
+            
+            # 2. Send initial response "+OK octets" (report original size)
+            # Note: Reporting original size is common practice, though size on wire is larger.
             response_line = f"+OK {len(mail_data)} octets"
             self.transport.write(response_line.encode('utf-8') + POP3_LINE_TERM)
             
-            # 2. Send the actual mail data
-            await self._send_data_chunks(mail_data)
+            # 3. Send the stuffed mail data
+            await self._send_data_chunks(stuffed_mail_data)
             
-            # 3. Send the End-of-Block (EOB) marker as per RFC 1939
+            # 4. Send the End-of-Block (EOB) marker as per RFC 1939
             print("[SERVER] (RETR) Finished sending mail data stream.")
             
-            # 4. After successful send, optionally delete the file
+            # 5. After successful send, optionally delete the file
             if self.delete_after_send and self._current_mail_file_path and os.path.exists(self._current_mail_file_path):
                 try:
-                    os.remove(self._current_mail_file_path)
+                    #os.remove(self._current_mail_file_path)
+                    target_path = os.path.join(self.target_directory, os.path.basename(self._current_mail_file_path))
+                    shutil.move(self._current_mail_file_path, target_path)
                     print(f"[SERVER] (RETR) Deleted mail file '{self._current_mail_file_path}'")
                 except OSError as e:
                     print(f"[SERVER] (RETR) Failed to delete mail file '{self._current_mail_file_path}': {e}")
@@ -336,11 +414,22 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
             # Reset the current file path regardless of success or failure
             # to avoid trying to delete it again or on QUIT
             self._current_mail_file_path = None
+            # Note: Do not clear _current_send_task here to ensure _handle_quit waits
+            # for the entire coroutine to finish, including this finally block.
+            
+        # Clear the reference to the finished task AFTER the coroutine is truly done.
+        # This ensures _handle_quit's 'await self._current_send_task' waits for
+        # absolutely everything in this function to complete.
+        # --- TEST DELAY TO ENSURE DATA IS FLUSHED ---
+        # await asyncio.sleep(0.1) # Uncomment this line for testing
+        # --- TEST DELAY TO ENSURE DATA IS FLUSHED ---
+        self._current_send_task = None
         # The transport/connection lifecycle is managed by the main command loop (QUIT).
 
     async def send_top_data(self, mail_data, num_lines):
         """
         Asynchronously send the headers and top 'num_lines' of body.
+        Implements byte-stuffing as per RFC 1939 Section 3.
         """
         try:
             # Find header/body separator
@@ -366,17 +455,29 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
             # Add final \r\n before the .
             data_to_send += b'\r\n'
             
-            # 1. Send initial response "+OK top data follows"
+            # 1. Apply byte-stuffing to the data to be sent
+            stuffed_data_to_send = self._apply_byte_stuffing(data_to_send)
+
+            # 2. Send initial response "+OK top data follows"
             self.transport.write(b"+OK top data follows" + POP3_LINE_TERM)
             
-            # 2. Send the constructed data
-            await self._send_data_chunks(data_to_send)
+            # 3. Send the stuffed constructed data
+            await self._send_data_chunks(stuffed_data_to_send)
             
             print(f"[SERVER] (TOP) Finished sending top data ({num_lines} lines).")
             
         except Exception as e:
             print(f"[SERVER] (TOP) Error sending top data: {e}")
             traceback.print_exc()
+        finally:
+            # Note: Do not clear _current_send_task here to ensure _handle_quit waits
+            # for the entire coroutine to finish, including this finally block.
+            pass # Explicit pass for clarity if the finally block is empty otherwise
+            
+        # Clear the reference to the finished task AFTER the coroutine is truly done.
+        # This ensures _handle_quit's 'await self._current_send_task' waits for
+        # absolutely everything in this function to complete.
+        self._current_send_task = None
         # Note: TOP does not trigger file deletion
 
     async def _send_data_chunks(self, data_to_send):
@@ -385,6 +486,8 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
             # Send all at once
             print(f"[SERVER] Sending data in one chunk of {len(data_to_send)} bytes.")
             self.transport.write(data_to_send)
+            # Yield control to allow the event loop to flush the write buffer
+            await asyncio.sleep(0)
         else:
             # Send in chunks
             print(f"[SERVER] Sending data in chunks of {self.chunk_size} bytes.")
@@ -395,13 +498,43 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
                 chunk = data_to_send[i:i+self.chunk_size]
                 print(f"[SERVER] Sending chunk {i//self.chunk_size + 1} ({len(chunk)} bytes)")
                 self.transport.write(chunk)
+                # Yield control to allow the event loop to flush the write buffer
+                await asyncio.sleep(0)
                 # Await the delay only if it's not the last chunk and delay is set
                 if self.delay and i + self.chunk_size < len(data_to_send):
                     print(f"[SERVER] Waiting {self.delay} seconds before next chunk...")
                     await asyncio.sleep(self.delay)
         
         # Always end multi-line data responses with the POP3 terminator
-        self.transport.write(b"." + POP3_LINE_TERM)
+        print("[SERVER] (RETR) About to send EOB marker.")
+        # --- DIAGNOSTIC: Try direct socket write ---
+        raw_socket = None
+        try:
+            # Get the underlying socket
+            raw_socket = self.transport._sock
+            print(f"[SERVER] (RETR) Raw socket type: {type(raw_socket)}")
+            # Directly send the EOB marker using the raw socket
+            bytes_sent = raw_socket.send(b"." + POP3_LINE_TERM)
+            print(f"[SERVER] (RETR) Direct socket send() returned: {bytes_sent} bytes sent.")
+            
+            # --- NEW: Try to force the OS to send the data by shutting down the write side ---
+            import socket
+            raw_socket.shutdown(socket.SHUT_WR)
+            print("[SERVER] (RETR) Raw socket SHUT_WR called.")
+            # --- NEW ---
+            
+        except Exception as e:
+            print(f"[SERVER] (RETR) Error during direct socket write/shutdown: {e}")
+        # --- DIAGNOSTIC ---
+        print("[SERVER] (RETR) EOB marker sent (via transport or direct socket).")
+        # Diagnostic: Print transport info
+        print(f"[SERVER] (RETR) Transport type: {type(self.transport)}")
+        print(f"[SERVER] (RETR) Transport is_closing: {self.transport.is_closing()}")
+        # --- DECISIVE TEST: Force wait for 5 seconds ---
+        print("[SERVER] (RETR) Starting 5-second wait after direct socket shutdown...")
+        await asyncio.sleep(5) # Wait 5 seconds
+        print("[SERVER] (RETR) 5-second wait finished.")
+        # --- DECISIVE TEST ---
 
 
     def connection_lost(self, exc):
@@ -409,6 +542,76 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
         print("[SERVER] Connection lost")
         # Do not delete file on connection loss, only on successful RETR send
         self._current_mail_file_path = None
+        # Clear send task reference
+        self._current_send_task = None
+
+    def _apply_byte_stuffing(self, data):
+        """
+        Applies byte-stuffing to the data as per RFC 1939 Section 3.
+        Any line beginning with a '.' (0x2E) character MUST be "stuffed"
+        with an additional '.' (0x2E) character at the beginning of the line.
+        This function takes bytes and returns bytes.
+        """
+        if not data:
+            return data
+            
+        # Split into lines, preserving line endings
+        lines = data.splitlines(True) 
+        stuffed_lines = []
+        for line in lines:
+            # Check if the line starts with '.' (0x2E)
+            # line could be '...\r\n' or '...\n' or just '...'
+            if line.startswith(b'.'):
+                # Prepend an additional '.'
+                stuffed_lines.append(b'.' + line)
+            else:
+                stuffed_lines.append(line)
+                
+        # Join the stuffed lines back together
+        stuffed_data = b''.join(stuffed_lines)
+        return stuffed_data
+
+    async def _handle_quit(self):
+        """Asynchronously handle the QUIT command, ensuring data is sent first."""
+        try:
+            # Capture the task reference atomically
+            send_task_to_wait = self._current_send_task
+            
+            # Ensure any ongoing send task (RETR/TOP) finishes before closing
+            if send_task_to_wait is not None and not send_task_to_wait.done():
+                print("[SERVER] (QUIT) Waiting for ongoing send task to finish...")
+                # Wait for the send task to complete
+                await send_task_to_wait
+                print("[SERVER] (QUIT) Ongoing send task finished.")
+            elif send_task_to_wait is not None:
+                 print("[SERVER] (QUIT) Send task was already finished.")
+            else:
+                 print("[SERVER] (QUIT) No send task was in progress.")
+
+            # --- Small delay to potentially force event loop flush ---
+            # This is a workaround attempt for data not appearing to send immediately.
+            # It's not a standard solution but might help in some environments.
+            # await asyncio.sleep(0.01) 
+            
+            self.state = "AUTHORIZATION" # Reset state for potential new connection
+            # Do not delete file on QUIT, only on successful RETR send
+            self._current_mail_file_path = None
+            # Clear send task reference
+            self._current_send_task = None
+            if self.transport and not self.transport.is_closing():
+                self.transport.write(b"+OK Bye" + POP3_LINE_TERM)
+                print("[SERVER] (QUIT) Sent +OK Bye.")
+                # Revert to close for now to see if write_eof was the issue
+                self.transport.close()
+                print("[SERVER] (QUIT) Connection closed.")
+            else:
+                print("[SERVER] (QUIT) Transport was already closing.")
+        except Exception as e:
+            print(f"[SERVER] Error in _handle_quit: {e}")
+            traceback.print_exc()
+            # Attempt to close transport if an error occurs
+            if self.transport and not self.transport.is_closing():
+                 self.transport.close()
 
 async def main(mail_dir_path, port, chunk_size=None, delay=None, delete_after_send=False):
     """Main function to start the server."""
