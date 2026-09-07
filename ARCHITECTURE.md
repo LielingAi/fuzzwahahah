@@ -412,6 +412,22 @@ function calling，进程内执行 fuzzcore 工具（复用 `MCPServer` 实现�
 种子（magic props + length + crc32 + blob），5 个全过验证门。对比无严格校验时
 Kimi Code 的不规范 type 产出的是 8 字节全零残缺种子且验证门误判通过。
 
+### 10.3d 统一 CLI（2026-09-07）
+
+`fuzzcore/cli.py` + `fuzzcore/__main__.py` 提供统一入口（替代散落的独立脚本）：
+
+```
+fuzz run --type binary --harness X [--magic Y --llm deepseek]   # 完整闭环
+fuzz run --type protocol --protocol P --host H --port N          # 引擎+观察
+fuzz run --type browser                                          # Fuzzilli+QuickJS
+fuzz report --out DIR                                            # 任务报告
+```
+
+binary 走完整闭环（LLM 综合 grammar → FuzzJobRunner）；LLM 综合不确定时回退
+recovery 确定性信封（`--magic` 给定时）。protocol/browser 的语法层（协议状态机/
+程序语法）与字节 Grammar 不同构，当前跑引擎+观察+报告，闭环在语法层统一后接入。
+端到端验证：DeepSeek 综合 `crc_lzma_envelope` → 闭环覆盖 0→309。
+
 ### 10.4 反馈契约（feedback_kind）
 
 `Engine.feedback_kind`：EDGE_COVERAGE（真边覆盖，平台期自救有效）/

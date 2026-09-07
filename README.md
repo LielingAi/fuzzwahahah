@@ -37,9 +37,29 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 
 运行示例：
 
+**统一入口**（推荐）：`fuzz run` 一条命令跑完整任务（新目标接入 → fuzz → 平台期反射弧自救 → 无效升级 LLM → 覆盖回升）：
+
 ```powershell
-# 浏览器：Fuzzilli 驱动 QuickJS
-.\vendor\fuzzillai\.build\debug\FuzzilliCli.exe --profile=qjs --storagePath=out .\vendor\quickjs\qjs_fuzzilli.exe
+# 文件格式（完整闭环，LLM 综合 grammar + 编排）
+python -m fuzzcore run --type binary --harness harness\fuzz_crc_lzma.exe --magic 5d00008000 --context "CRC32+LZMA harness" --llm deepseek --out out
+
+# 网络协议（ProtocolEngine, 代理指标观察）
+python -m fuzzcore run --type protocol --protocol http --host 192.168.1.10 --port 80
+
+# 浏览器/JS 引擎（Fuzzilli + QuickJS）
+python -m fuzzcore run --type browser
+
+# 任务报告
+python -m fuzzcore report --out out
+```
+
+LLM 后端经 `--llm deepseek|kimi|none` 选择（deepseek 需 `OPENAI_API_KEY` 环境变量）；`--llm none` 走纯反射弧（无 LLM）。
+
+**底层命令**（研究/调试用，等价于统一入口的内部组件）：
+
+```powershell
+# 浏览器：Fuzzilli 直接驱动 QuickJS
+.\vendor\fuzzillai\.build\debug\FuzzilliCli.exe --profile=qjs --storagePath=out --overwrite .\vendor\quickjs\qjs_fuzzilli.exe
 
 # 协议：以 Echo 为例（其余 14 个协议脚本同构）
 python boofuzz_echo_fuzzer.py <host> <port>
@@ -47,6 +67,7 @@ python boofuzz_echo_fuzzer.py <host> <port>
 # 平台演示（引擎/语法/调度/结构恢复/LLM 编排）
 python fuzzcore\phase1_demo.py
 python fuzzcore\mcp_demo.py
+python fuzzcore\jobrunner_demo.py
 ```
 
 ## 目录结构
