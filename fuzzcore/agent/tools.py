@@ -29,6 +29,18 @@ def make_seed_generator(grammar: Grammar):
     return generate_seeds
 
 
+def make_corpus_seed_generator(corpus, grammar_name: str):
+    """返回 generate_seeds 工具：grammar 从 Corpus 按名取（与 LLM 编排共用同一来源）。
+
+    统一 grammar 来源：LLM 经 MCP register_grammar 注册的 grammar 与本工具
+    共用 Corpus 的 grammars 表, 避免规则自救与 LLM 编排各用一套 grammar。
+    """
+    grammar = corpus.get_grammar(grammar_name)
+    if grammar is None:
+        raise ValueError(f"grammar not registered in corpus: {grammar_name}")
+    return make_seed_generator(grammar)
+
+
 def make_seed_puller(corpus, target_id: str):
     """返回 pull_seeds 工具：从种子队列取出未消费种子并转为 Input 列表。
 
