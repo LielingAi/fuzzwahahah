@@ -8,6 +8,7 @@ import sys
 import time
 import argparse
 import struct
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -19,7 +20,7 @@ def create_mysql_requests():
     """创建增强的MySQL请求模板"""
     
     
-    print("🧠 使用AI增强生成MYSQL测试数据...")
+    print("Using AI to generate MySQL test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -33,10 +34,10 @@ def create_mysql_requests():
         symbolic_strategy_enabled = generate_protocol_data('mysql', 'strategy_enabled', 15, use_ai=True)
         symbolic_symbolic_execution = generate_protocol_data('mysql', 'symbolic_execution', 15, use_ai=True)
         
-        print("✅ AI数据生成完成")
+        print("AI data generation completed")
         
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_adaptation_interval = ["test_adaptation_interval", "default_adaptation_interval", "sample_adaptation_interval"]
         symbolic_decision_threshold = ["test_decision_threshold", "default_decision_threshold", "sample_decision_threshold"]
@@ -47,37 +48,6 @@ def create_mysql_requests():
         symbolic_execution = ["test_execution", "default_execution", "sample_execution"]
         symbolic_strategy_enabled = ["test_strategy_enabled", "default_strategy_enabled", "sample_strategy_enabled"]
         symbolic_symbolic_execution = ["test_symbolic_execution", "default_symbolic_execution", "sample_symbolic_execution"]
-# 初始化符号执行引擎
-    
-    
-    print("🧠 生成MySQL符号执行数据...")
-    
-    # SQL查询分析
-    sql_queries = []
-    
-    # 数据库名分析
-    db_names = []
-    
-    # 表名分析
-    table_names = []
-    
-    print(f"✅ 生成了 {len(sql_queries)} 个SQL查询变异")
-    print(f"✅ 生成了 {len(db_names)} 个数据库名变异")
-    print(f"✅ 生成了 {len(table_names)} 个表名变异")
-    
-    # 使用基础测试数据
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MYSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MYSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MYSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
     
     requests = []
     
@@ -283,7 +253,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🐬 Enhanced MySQL Protocol Fuzzer")
+    print("Enhanced MySQL Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Username: {args.username}")
@@ -292,12 +262,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_mysql_requests()
-        print(f"✅ Successfully created {len(requests)} MySQL request templates")
+        print(f"Successfully created {len(requests)} MySQL request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -307,7 +277,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -317,7 +287,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -329,27 +299,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建MySQL请求
     requests = create_mysql_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始MySQL协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标MySQL服务器执行潜在危险的操作!")
+    print("Starting MySQL protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target MySQL server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 MySQL模糊测试完成")
+        try:
+            save_ai_learning_data("mysql")
+        except Exception:
+            pass
+        print("MySQL fuzzing completed")
 
 if __name__ == "__main__":
     main()

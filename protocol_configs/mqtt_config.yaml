@@ -37,9 +37,13 @@ requests:
       - type: "group"
         name: "connect_flags"
         data_source: "symbolic_connect_flags"
+        convert_to_bytes: true
+        byte_format: "byte"
       - type: "group"
         name: "keep_alive"
         data_source: "symbolic_keep_alive_values"
+        convert_to_bytes: true
+        byte_format: "big_endian_word"
       - type: "static"
         primitive: "word"
         value: 0x000C
@@ -105,7 +109,36 @@ requests:
       - type: "group"
         name: "qos"
         data_source: "symbolic_qos_levels"
+        convert_to_bytes: true
+        byte_format: "byte"
 
 # Symbolic Data Configuration
 description: "MQTT Protocol Fuzzer with AI Enhancement"
 web_port: 26020
+
+# 数据变量定义: 变量名 -> {type: 词典键(protocol_templates/mqtt.json), count}
+symbolic_data:
+  symbolic_connect_flags:
+    type: "connect_flags"
+    count: 8
+  symbolic_keep_alive_values:
+    type: "keep_alive_values"
+    count: 8
+  symbolic_client_ids:
+    type: "client_ids"
+    count: 12
+  symbolic_usernames:
+    type: "usernames"
+    count: 8
+  symbolic_passwords:
+    type: "passwords"
+    count: 8
+  symbolic_topics:
+    type: "topics"
+    count: 12
+  symbolic_messages:
+    type: "messages"
+    count: 12
+  symbolic_qos_levels:
+    type: "qos_levels"
+    count: 6

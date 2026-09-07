@@ -1,0 +1,2 @@
+PARSING BYTES: 8b 44 18 00 
+0: mov eax, dword ptr [eax+ebx]

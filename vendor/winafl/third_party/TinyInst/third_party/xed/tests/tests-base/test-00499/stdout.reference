@@ -1,0 +1,2 @@
+PARSING BYTES: f3 0f bc 00 
+0: bsf eax, dword ptr [eax]

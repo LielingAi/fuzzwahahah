@@ -1,0 +1,1 @@
+ BUILDDIR/xed-enc -64 vaddps xmm3 k1 xmm1 xmm2

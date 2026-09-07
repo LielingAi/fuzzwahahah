@@ -1,0 +1,36 @@
+diff --git a/src/objects/feedback-vector.cc b/src/objects/feedback-vector.cc
+index 8af792bb2f0..b3ca6406c03 100644
+--- a/src/objects/feedback-vector.cc
++++ b/src/objects/feedback-vector.cc
+@@ -20,6 +20,7 @@
+ #include "src/objects/hash-table-inl.h"
+ #include "src/objects/map-inl.h"
+ #include "src/objects/objects.h"
++#include "src/fuzzilli/cov.h"
+ 
+ namespace v8::internal {
+ 
+@@ -637,6 +638,7 @@ bool FeedbackNexus::ConfigureMegamorphic() {
+   Tagged<MaybeObject> sentinel = MegamorphicSentinel();
+   if (GetFeedback() != sentinel) {
+     SetFeedback(sentinel, SKIP_WRITE_BARRIER, kClearedWeakValue);
++    cov_add_feedback_nexus(this);
+     return true;
+   }
+ 
+@@ -655,6 +657,7 @@ void FeedbackNexus::ConfigureMegaDOM(const MaybeObjectDirectHandle& handler) {
+   Tagged<MaybeObject> sentinel = MegaDOMSentinel();
+ 
+   SetFeedback(sentinel, SKIP_WRITE_BARRIER, *handler, UPDATE_WRITE_BARRIER);
++  cov_add_feedback_nexus(this);
+ }
+ 
+ bool FeedbackNexus::ConfigureMegamorphic(IcCheckType property_type) {
+@@ -668,6 +671,7 @@ bool FeedbackNexus::ConfigureMegamorphic(IcCheckType property_type) {
+       feedback.first != sentinel || feedback.second != maybe_extra;
+   if (update_required) {
+     SetFeedback(sentinel, SKIP_WRITE_BARRIER, maybe_extra, SKIP_WRITE_BARRIER);
++    cov_add_feedback_nexus(this);
+   }
+   return update_required;
+ }

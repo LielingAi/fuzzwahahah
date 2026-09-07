@@ -7,6 +7,7 @@ Enhanced IMAP Protocol Fuzzer with Symbolic Execution
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -20,7 +21,7 @@ def repeat_str(char: str, count: int) -> str:
 def create_imap_requests():
     '''创建增强的IMAP请求模板'''
     
-    print("🧠 使用AI增强生成IMAP测试数据...")
+    print("Using AI to generate IMAP test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -30,14 +31,14 @@ def create_imap_requests():
         symbolic_mailboxes = generate_protocol_data('imap', 'mailboxes', 8, use_ai=True)
         symbolic_search_criteria = generate_protocol_data('imap', 'search_criteria', 10, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_commands)} 个IMAP命令变异")
-        print(f"✅ AI生成了 {len(symbolic_usernames)} 个用户名变异")
-        print(f"✅ AI生成了 {len(symbolic_passwords)} 个密码变异")
-        print(f"✅ AI生成了 {len(symbolic_mailboxes)} 个邮箱名变异")
-        print(f"✅ AI生成了 {len(symbolic_search_criteria)} 个搜索条件变异")
+        print(f"AI generated {len(symbolic_commands)} IMAP command variants")
+        print(f"AI generated {len(symbolic_usernames)} username variants")
+        print(f"AI generated {len(symbolic_passwords)} password variants")
+        print(f"AI generated {len(symbolic_mailboxes)} mailbox name variants")
+        print(f"AI generated {len(symbolic_search_criteria)} search criteria variants")
         
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_commands = ['LOGIN', 'SELECT', 'EXAMINE', 'CREATE', 'DELETE', 'RENAME', 'SUBSCRIBE', 'UNSUBSCRIBE', 'LIST', 'LSUB', 'STATUS', 'APPEND', 'CHECK', 'CLOSE', 'EXPUNGE', 'SEARCH', 'FETCH', 'STORE', 'COPY', 'UID']
         symbolic_usernames = ['test', 'admin', 'user', 'root', 'postmaster']
@@ -73,7 +74,7 @@ def create_imap_requests():
     ] + symbolic_passwords[:8]
     s_group("password", values=passwords)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_LOGIN"))
     
     # 2. IMAP SELECT命令
@@ -90,7 +91,7 @@ def create_imap_requests():
     ] + symbolic_mailboxes[:5]
     s_group("mailbox", values=mailboxes)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_SELECT"))
     
     # 3. IMAP EXAMINE命令
@@ -99,7 +100,7 @@ def create_imap_requests():
     s_delim("\"")
     s_group("examine_mailbox", values=mailboxes)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_EXAMINE"))
     
     # 4. IMAP CREATE命令
@@ -113,7 +114,7 @@ def create_imap_requests():
     ] + [f"Test_{mb}" for mb in symbolic_mailboxes[:5]]
     s_group("create_mailbox", values=create_mailboxes)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_CREATE"))
     
     # 5. IMAP DELETE命令
@@ -127,7 +128,7 @@ def create_imap_requests():
     ] + [f"Delete_{mb}" for mb in symbolic_mailboxes[:5]]
     s_group("delete_mailbox", values=delete_mailboxes)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_DELETE"))
     
     # 6. IMAP RENAME命令
@@ -145,7 +146,7 @@ def create_imap_requests():
     ] + [f"Renamed_{mb}" for mb in symbolic_mailboxes[:5]]
     s_group("rename_to", values=rename_tos)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_RENAME"))
     
     # 7. IMAP LIST命令
@@ -162,7 +163,7 @@ def create_imap_requests():
     patterns = ["*", "%", "INBOX*", "Sent*"]
     s_group("pattern", values=patterns)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_LIST"))
     
     # 8. IMAP LSUB命令
@@ -175,7 +176,7 @@ def create_imap_requests():
     s_delim("\"")
     s_group("lsub_pattern", values=patterns)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_LSUB"))
     
     # 9. IMAP STATUS命令
@@ -190,7 +191,7 @@ def create_imap_requests():
     status_items = ["MESSAGES", "RECENT", "UIDNEXT", "UIDVALIDITY", "UNSEEN"]
     s_group("status_item", values=status_items)
     s_delim(")")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_STATUS"))
     
     # 10. IMAP APPEND命令 (简化版)
@@ -206,7 +207,7 @@ def create_imap_requests():
     # 邮件内容 (简化)
     s_string("Subject: Test\\\\r\\\\n\\\\r\\\\nThis is a test message.")
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_APPEND"))
     
     # 11. IMAP CHECK命令
@@ -245,7 +246,7 @@ def create_imap_requests():
         "TO \\\"user\\\""
     ] + symbolic_search_criteria[:8]
     s_group("search_criterion", values=search_criteria)
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_SEARCH"))
     
     # 15. IMAP FETCH命令
@@ -258,7 +259,7 @@ def create_imap_requests():
     # 数据项
     data_items = ["ENVELOPE", "FLAGS", "INTERNALDATE", "RFC822", "RFC822.HEADER", "RFC822.TEXT", "UID"]
     s_group("data_item", values=data_items)
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_FETCH"))
     
     # 16. IMAP STORE命令
@@ -275,7 +276,7 @@ def create_imap_requests():
     flags = ["\\\\Seen", "\\\\Answered", "\\\\Flagged", "\\\\Deleted", "\\\\Draft"]
     s_group("flag", values=flags)
     s_delim(")")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_STORE"))
     
     # 17. IMAP COPY命令
@@ -287,7 +288,7 @@ def create_imap_requests():
     s_delim("\"")
     s_group("copy_mailbox", values=mailboxes)
     s_delim("\"")
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_COPY"))
     
     # 18. IMAP UID命令 (示例: UID FETCH)
@@ -298,7 +299,7 @@ def create_imap_requests():
     s_group("uid_seq_num", values=uid_seq_numbers)
     s_delim(" ")
     s_group("uid_data_item", values=data_items)
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_UID"))
     
     # 19. IMAP CAPABILITY命令
@@ -327,7 +328,7 @@ def create_imap_requests():
         f'A995 FETCH 1 {repeat_str("F", 1000)}',
     ]
     s_group("malicious_command", values=malicious_commands)
-    s_delim("\\r\\n")
+    s_delim("\r\n")
     requests.append(s_get("IMAP_MALICIOUS"))
     
     return requests
@@ -343,7 +344,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("📧 Enhanced IMAP Protocol Fuzzer")
+    print("Enhanced IMAP Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"SSL: {'Yes' if args.ssl else 'No'}")
@@ -351,12 +352,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_imap_requests()
-        print(f"✅ Successfully created {len(requests)} IMAP request templates")
+        print(f"Successfully created {len(requests)} IMAP request templates")
         
         for i, req in enumerate(requests):
-            print(f"\\n📋 Request {i+1}: {req.name}")
+            print(f"\\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -367,7 +368,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\\n✅ Dry run completed successfully!")
+        print("\\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -388,27 +389,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建IMAP请求
     requests = create_imap_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始IMAP协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标IMAP服务器执行潜在危险的操作!")
+    print("Starting IMAP protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target IMAP server!")
 
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\\n⏹️  用户中断测试")
+        print("\\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\\n❌ 测试过程中出现错误: {e}")
+        print(f"\\nError during fuzzing: {e}")
     finally:
-        print("🏁 IMAP模糊测试完成")
+        try:
+            save_ai_learning_data("imap")
+        except Exception:
+            pass
+        print("IMAP fuzzing completed")
 
 if __name__ == "__main__":
     main()

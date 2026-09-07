@@ -132,5 +132,5 @@ CVE-XXXX-YYYY 的两个漏洞本质上是**严重的数据完整性破坏**漏�
 
 ## 5. POC 文件说明
 
--   **`poc2.py`**: 该 Python 脚本用于生成一个复杂的 POC 邮件文件 `poc_chain_reaction.eml`。该邮件文件结合了在邮件头部利用 B 漏洞破坏原始头部结构，以及在邮件体部利用双 B 漏洞链式反应来操纵体部数据流的设计思想。
--   **`poc_chain_reaction.eml`** (由 `poc2.py` 生成): 具体的邮件文件，包含了在邮件头部和体部用于触发不同漏洞效果的精心构造的数据。
+-   **`fuzz_pop3_mail_boofuzz_generator.py`**: 项目中实际存在的 POC 邮件生成脚本（早期文档引用的 `poc2.py` 与 `poc_chain_reaction.eml` 在仓库中并不存在）。该脚本使用 Boofuzz 生成用于触发头部 B 漏洞破坏、体部双 B 漏洞链式反应等场景的 .eml 邮件文件，输出到 `fuzzed_pop3_mails/` 目录。
+-   **`fuzz_pop3_server.py`**: 配套的 POP3 fuzz 服务器，逐个提供 `fuzzed_pop3_mails/` 中的 .eml 邮件并执行 RFC 1939 byte-stuffing，用于配合 libcurl 客户端复现 CVE-XXXX-YYYY。

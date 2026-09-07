@@ -5,8 +5,10 @@ import subprocess
 import argparse
 from openai import OpenAI  # 需要安装openai包: pip install openai
 
-# 配置信息 
-OPENAI_API_KEY = "sk-P8rNIdglytrd82CjNPHClslfT6usNcJC4OCy3tWJGU0elGUJ"
+# 配置信息
+# 注意: 不要硬编码 API key。旧 key 已泄露(进过公开 git 历史), 请在服务商处吊销并轮换。
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.302.ai")
 MODEL_NAME = "gpt-4.1-mini"  
 MAN_PAGE_DIR = "man_pages"
 SEED_CORPUS_DIR = "seed_corpus"
@@ -44,7 +46,7 @@ def analyze_man_page_with_llm(man_file_path):
     if len(man_content) > 120000:
         man_content = man_content[:60000] + "\n[...TRUNCATED...]\n" + man_content[-60000:]
     
-    client = OpenAI(api_key=OPENAI_API_KEY, base_url="https://api.302.ai")
+    client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
     
     # 精心设计的提示词 - 核心逻辑
     system_prompt = """
@@ -245,6 +247,18 @@ def main():
     parser.add_argument("--local-llm", help="本地LLM API端点 (如 http://localhost:8000/v1)")
     args = parser.parse_args()
     
+    if not OPENAI_API_KEY:
+        print("[-] 错误: 未设置 OPENAI_API_KEY 环境变量")
+        print("    用法(Windows): set OPENAI_API_KEY=sk-xxx")
+        print("    用法(Linux/macOS): export OPENAI_API_KEY=sk-xxx")
+        return
+    
+    # --local-llm 覆盖 API 端点 (本地 LLM, 如 http://localhost:8000/v1)
+    if args.local_llm:
+        global OPENAI_BASE_URL
+        OPENAI_BASE_URL = args.local_llm
+        print(f"[*] 使用本地 LLM 端点: {args.local_llm}")
+    
     # 步骤1: 提取man文档
     man_file = extract_man_page(args.program)
     if not man_file:
@@ -258,6 +272,15 @@ def main():
         print("[-] 无法分析参数信息")
         return
     
+    if not isinstance(param_info, dict):
+        print("[-] LLM 返回结果不是 JSON 对象")
+        return
+    
+    parameters = param_info.get("parameters")
+    if not isinstance(parameters, list) or not parameters:
+        print("[-] LLM 返回的 JSON 缺少 parameters 列表，无法生成种子")
+        return
+    
     # 保存参数信息用于调试
     param_file = os.path.join(MAN_PAGE_DIR, f"{args.program}_params.json")
     with open(param_file, "w", encoding="utf-8") as f:
@@ -266,9 +289,10 @@ def main():
     
     # 步骤3: 生成模糊测试种子
     print("[*] 生成模糊测试种子...")
-    seeds = generate_fuzz_seeds(param_info["parameters"])
+    seeds = generate_fuzz_seeds(parameters)
     
     # 保存种子信息
+    os.makedirs(SEED_CORPUS_DIR, exist_ok=True)
     seed_info_file = os.path.join(SEED_CORPUS_DIR, f"{args.program}_seeds.json")
     with open(seed_info_file, "w", encoding="utf-8") as f:
         json.dump(seeds, f, indent=2)

@@ -7,6 +7,7 @@ Enhanced Redis Protocol Fuzzer with Symbolic Execution
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -17,7 +18,7 @@ from boofuzz.utils.enhanced_symbolic_execution import (
 def create_redis_requests():
     """创建增强的Redis请求模板 - 支持完整的Redis命令集"""
 
-    print("🧠 使用AI增强生成Redis测试数据...")
+    print("Using AI to generate Redis test data...")
 
     # 使用AI增强的协议数据生成
     try:
@@ -25,12 +26,12 @@ def create_redis_requests():
         symbolic_keys = generate_protocol_data('redis', 'keys', 20, use_ai=True)
         symbolic_vals = generate_protocol_data('redis', 'values', 25, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_cmds)} 个Redis命令变异")
-        print(f"✅ AI生成了 {len(symbolic_keys)} 个Redis键名变异")
-        print(f"✅ AI生成了 {len(symbolic_vals)} 个Redis值变异")
+        print(f"AI generated {len(symbolic_cmds)} Redis command variants")
+        print(f"AI generated {len(symbolic_keys)} Redis key name variants")
+        print(f"AI generated {len(symbolic_vals)} Redis value variants")
 
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_cmds = ["GET", "SET", "DEL", "HGET", "HSET", "EVAL", "CONFIG"]
         symbolic_keys = ["test", "user:1", "session:abc", "config:key", "data:item"]
@@ -39,7 +40,7 @@ def create_redis_requests():
     requests = []
 
     # Redis使用RESP协议 (Redis Serialization Protocol)
-    print("📋 创建Redis命令模糊测试模板...")
+    print("Creating Redis command fuzzing templates...")
     
     # 1. 基本GET命令
     s_initialize("REDIS_GET")
@@ -652,7 +653,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🔴 Enhanced Redis Protocol Fuzzer")
+    print("Enhanced Redis Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Auth: {'Yes' if args.auth else 'No'}")
@@ -660,12 +661,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_redis_requests()
-        print(f"✅ Successfully created {len(requests)} Redis request templates")
+        print(f"Successfully created {len(requests)} Redis request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -673,7 +674,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -695,7 +696,7 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
 
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 如果需要认证，先发送AUTH命令
     if args.auth:
@@ -711,17 +712,21 @@ def main():
     for request in requests:
         session.connect(request)
     
-    print(f"🚀 开始Redis协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
+    print("Starting Redis protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 Redis模糊测试完成")
+        try:
+            save_ai_learning_data("redis")
+        except Exception:
+            pass
+        print("Redis fuzzing completed")
 
 if __name__ == "__main__":
     main()

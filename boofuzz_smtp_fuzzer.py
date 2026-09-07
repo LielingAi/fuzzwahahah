@@ -7,6 +7,7 @@ Enhanced SMTP Protocol Fuzzer with Symbolic Execution
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -18,7 +19,7 @@ def create_smtp_requests():
     """创建增强的SMTP请求模板"""
     
     
-    print("🧠 使用AI增强生成SMTP测试数据...")
+    print("Using AI to generate SMTP test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -27,49 +28,18 @@ def create_smtp_requests():
         symbolic_subjects = generate_protocol_data('smtp', 'subjects', 10, use_ai=True)
         symbolic_bodies = generate_protocol_data('smtp', 'bodies', 8, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_commands)} 个SMTP命令变异")
-        print(f"✅ AI生成了 {len(symbolic_emails)} 个邮件地址变异")
-        print(f"✅ AI生成了 {len(symbolic_subjects)} 个邮件主题变异")
-        print(f"✅ AI生成了 {len(symbolic_bodies)} 个邮件正文变异")
+        print(f"AI generated {len(symbolic_commands)} SMTP command variants")
+        print(f"AI generated {len(symbolic_emails)} email address variants")
+        print(f"AI generated {len(symbolic_subjects)} email subject variants")
+        print(f"AI generated {len(symbolic_bodies)} email body variants")
         
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_commands = ['HELO', 'EHLO', 'MAIL FROM', 'RCPT TO', 'DATA', 'QUIT']
         symbolic_emails = ['test@example.com', 'admin@localhost', 'user@test.local']
         symbolic_subjects = ['Test Subject', 'Important Notice', 'System Alert']
         symbolic_bodies = ['Test message body', 'Hello World!', 'System notification']
-# 初始化符号执行引擎
-    
-    
-    print("🧠 生成SMTP符号执行数据...")
-    
-    # SMTP命令分析
-    smtp_commands = []
-    
-    # 邮件地址分析
-    email_addresses = []
-    
-    # 邮件内容分析
-    email_content = []
-    
-    print(f"✅ 生成了 {len(smtp_commands)} 个SMTP命令变异")
-    print(f"✅ 生成了 {len(email_addresses)} 个邮件地址变异")
-    print(f"✅ 生成了 {len(email_content)} 个邮件内容变异")
-    
-    # 使用基础测试数据
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SMTP测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SMTP测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SMTP测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
     
     requests = []
     
@@ -372,7 +342,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("📧 Enhanced SMTP Protocol Fuzzer")
+    print("Enhanced SMTP Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"SSL: {'Yes' if args.ssl else 'No'}")
@@ -380,12 +350,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_smtp_requests()
-        print(f"✅ Successfully created {len(requests)} SMTP request templates")
+        print(f"Successfully created {len(requests)} SMTP request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -396,7 +366,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -406,7 +376,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="ssl" if args.ssl else "tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
     
         ),
@@ -419,27 +389,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建SMTP请求
     requests = create_smtp_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始SMTP协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标SMTP服务器执行潜在危险的操作!")
+    print("Starting SMTP protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target SMTP server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 SMTP模糊测试完成")
+        try:
+            save_ai_learning_data("smtp")
+        except Exception:
+            pass
+        print("SMTP fuzzing completed")
 
 if __name__ == "__main__":
     main()

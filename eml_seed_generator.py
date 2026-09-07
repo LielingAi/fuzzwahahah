@@ -9,8 +9,9 @@ import json
 import argparse
 from openai import OpenAI  # 需要安装openai包: pip install openai
 
-# 配置信息 
-OPENAI_API_KEY = "sk-76aeba8ea8b949cbad63275e9139279a"
+# 配置信息
+# 注意: 不要硬编码 API key。旧 key 已泄露(进过公开 git 历史), 请在服务商处吊销并轮换。
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 MODEL_NAME = "deepseek-chat"  
 SEED_CORPUS_DIR = "seed_corpus"
 
@@ -153,7 +154,8 @@ def save_seed_corpus(program_name, seeds):
     for i, seed in enumerate(seeds):
         # 保存EML文件
         eml_filename = os.path.join(corpus_dir, f"seed_{i+1:04d}.eml")
-        with open(eml_filename, "w", encoding="utf-8") as f:
+        # newline="" 防止 Windows 文本模式把内容里的 \r\n 二次转换成 \r\r\n
+        with open(eml_filename, "w", encoding="utf-8", newline="") as f:
             f.write(seed)
             
     print(f"[+] 生成 {len(seeds)} 个EML种子到目录: {corpus_dir}")
@@ -166,6 +168,12 @@ def main():
     parser.add_argument("--program", default="email_fuzzer", help="程序名称，用于创建子目录")
     args = parser.parse_args()
     
+    if not OPENAI_API_KEY:
+        print("[-] 错误: 未设置 OPENAI_API_KEY 环境变量")
+        print("    用法(Windows): set OPENAI_API_KEY=sk-xxx")
+        print("    用法(Linux/macOS): export OPENAI_API_KEY=sk-xxx")
+        return
+    
     print("[*] 使用LLM生成EML邮件内容种子...")
     
     seeds = []
@@ -173,15 +181,20 @@ def main():
         print(f"[*] 生成第 {i+1}/{args.count} 个种子...")
         email_data = generate_email_content_with_llm(args.description)
         
-        if email_data:
-            try:
-                eml_content = create_eml_content(email_data)
-                seeds.append(eml_content)
-                print(f"[+] 成功生成种子 {i+1}")
-            except Exception as e:
-                print(f"[-] 创建EML内容失败: {str(e)}")
-        else:
+        if not email_data:
             print(f"[-] LLM生成失败，跳过种子 {i+1}")
+            continue
+            
+        if not isinstance(email_data, dict):
+            print(f"[-] LLM 返回结果不是 JSON 对象，跳过种子 {i+1}")
+            continue
+        
+        try:
+            eml_content = create_eml_content(email_data)
+            seeds.append(eml_content)
+            print(f"[+] 成功生成种子 {i+1}")
+        except Exception as e:
+            print(f"[-] 创建EML内容失败: {str(e)}")
             
     if seeds:
         # 保存种子语料库

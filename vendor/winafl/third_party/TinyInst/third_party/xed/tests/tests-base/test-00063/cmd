@@ -1,0 +1,1 @@
+ BUILDDIR/xed-enc mov eax MEM4:bp,di,1

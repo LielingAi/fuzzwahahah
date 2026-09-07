@@ -7,6 +7,7 @@ Enhanced POP3 Protocol Fuzzer with Symbolic Execution
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -17,7 +18,7 @@ from boofuzz.utils.enhanced_symbolic_execution import (
 def create_pop3_requests():
     """创建增强的POP3请求模板"""
     
-    print("🧠 使用AI增强生成POP3测试数据...")
+    print("Using AI to generate POP3 test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -25,12 +26,12 @@ def create_pop3_requests():
         symbolic_usernames = generate_protocol_data('pop3', 'usernames', 12, use_ai=True)
         symbolic_passwords = generate_protocol_data('pop3', 'passwords', 10, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_commands)} 个POP3命令变异")
-        print(f"✅ AI生成了 {len(symbolic_usernames)} 个用户名变异")
-        print(f"✅ AI生成了 {len(symbolic_passwords)} 个密码变异")
+        print(f"AI generated {len(symbolic_commands)} POP3 command variants")
+        print(f"AI generated {len(symbolic_usernames)} username variants")
+        print(f"AI generated {len(symbolic_passwords)} password variants")
         
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_commands = ['USER', 'PASS', 'STAT', 'LIST', 'RETR', 'DELE', 'NOOP', 'RSET', 'QUIT', 'TOP', 'UIDL', 'CAPA', 'AUTH']
         symbolic_usernames = ['test', 'admin', 'user', 'root', 'postmaster']
@@ -182,7 +183,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("📧 Enhanced POP3 Protocol Fuzzer")
+    print("Enhanced POP3 Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"SSL: {'Yes' if args.ssl else 'No'}")
@@ -190,12 +191,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_pop3_requests()
-        print(f"✅ Successfully created {len(requests)} POP3 request templates")
+        print(f"Successfully created {len(requests)} POP3 request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -206,7 +207,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -216,7 +217,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="ssl" if args.ssl else "tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -228,27 +229,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建POP3请求
     requests = create_pop3_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始POP3协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标POP3服务器执行潜在危险的操作!")
+    print("Starting POP3 protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target POP3 server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 POP3模糊测试完成")
+        try:
+            save_ai_learning_data("pop3")
+        except Exception:
+            pass
+        print("POP3 fuzzing completed")
 
 if __name__ == "__main__":
     main()

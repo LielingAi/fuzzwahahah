@@ -1,0 +1,34 @@
+Package.resolved
+.DS_Store
+/.build
+/Packages
+/*.xcodeproj
+.vscode
+.*.sw?
+.swiftpm
+/Corpus
+.venv
+*pycache*
+Sources/Agentic_System/keys.cfg
+regressions*.json
+*.fzil
+generated_templates/
+ProgramTemplates.swift
+ProgramTemplateWeights.swift
+fog_logs/
+ebg_logs/
+Sources/Agentic_System/agent_memory/
+.gemini/
+crashes/
+folder*/
+# custom GCE configuration
+Cloud/GCE/config.sh
+
+# node.js dependencies, used by the JavaScript parser for the FuzzIL compiler
+node_modules
+package-lock.json
+
+# V8 build directory for testing
+v8_build_test/
+.__pycache__/*
+Sources/Agentic_System/RAG/data_sources/knowlage_docs/chromium_issues/chromium_issues_from_tracker.json

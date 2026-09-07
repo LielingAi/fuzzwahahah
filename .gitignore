@@ -1,0 +1,35 @@
+# FuzzWahahah .gitignore
+# 构建产物（vendored 依赖的源码进 git, 构建产物不进）
+
+# vendored 依赖的构建产物
+vendor/fuzzillai/.build/
+vendor/winafl/build64*/
+vendor/quickjs/*.exe
+vendor/quickjs/*.obj
+vendor/quickjs/*.lib
+vendor/quickjs/*.exp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# fuzz 运行产物
+boofuzz-results/
+ai_learning_data/*.json
+!ai_learning_data/.gitkeep
+corpus.db
+*.triage.log
+
+# 临时/诊断
+*.log
+__gen_test_*
+__session_ai_test.py
+__echo_*
+mcp_demo.db
+acp_smoke.db
+
+# 临时输出
+fuzzed_pop3_mails/
+afl_sudo_seeds/
+gen_test/

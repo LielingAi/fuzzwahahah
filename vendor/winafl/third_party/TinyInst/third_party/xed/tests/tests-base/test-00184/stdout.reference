@@ -1,0 +1,2 @@
+PARSING BYTES: f0 00 00 
+0: <INS><PREFIXES>lock</PREFIXES> <ICLASS>add</ICLASS> <OPERAND><MEM bits="8">byte ptr [eax]</MEM></OPERAND>, <OPERAND><REG bits="8">al</REG></OPERAND></INS>

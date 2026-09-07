@@ -15,15 +15,16 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 #try:
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data,learn_from_test_result,\
-                                                        save_ai_learning_data, grenerate_ai_enhanced_data, \
+                                                        save_ai_learning_data, generate_ai_enhanced_data, \
                                                         load_protocol_ai_data,generate_binary_data
 # from boofuzz.utils.enhanced_symbolic_execution import generate_binary_data
 ENHANCED_MODE = True
-print("✅ 已启用 FuzzWahahah AI 增强模式")
+print("已启用 FuzzWahahah AI 增强模式")
 #except ImportError:
 #    ENHANCED_MODE = False
-#    print("⚠️  FuzzWahahah 增强功能不可用，使用基础模式")
+#    print("Warning: FuzzWahahah 增强功能不可用，使用基础模式")
 
 class AFLSudoSeedGenerator:
     """AFL++ Sudo 种子生成器"""
@@ -64,17 +65,17 @@ class AFLSudoSeedGenerator:
             return self._generate_fallback_data()
         
         try:
-            print("🧠 使用 AI 增强生成 sudo 测试数据...")
+            print("使用 AI 增强生成 sudo 测试数据...")
             
             ai_data = {
                 'commands': generate_protocol_data('sudo', 'commands', 100, use_ai=True),
             }
-            print(f"✅ AI 生成了 {len(ai_data['commands'])} 个命令变异")
+            print(f"AI 生成了 {len(ai_data['commands'])} 个命令变异")
             
             return ai_data
             
         except Exception as e:
-            print(f"⚠️  AI 增强失败，使用基础模式: {e}")
+            print(f"Warning: AI 增强失败，使用基础模式: {e}")
             return self._generate_fallback_data()
 
     def _generate_fallback_data(self) -> Dict[str, List[str]]:
@@ -100,17 +101,17 @@ class AFLSudoSeedGenerator:
             self.seed_count += 1
             return True
         except Exception as e:
-            print(f"❌ 保存种子失败: {e}")
+            print(f"Error: 保存种子失败: {e}")
             return False
 
     def generate_all_seeds_no_save(self, seed_data, count: int = 1) -> List[str]:
         """生成所有类型的种子但不保存"""
-        print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
+        print(f"开始生成 {count} 个 AFL++ sudo 种子...")
         
         # 获取 AI 增强数据
         # ai_data = self.generate_ai_enhanced_data()
         load_protocol_ai_data('sudo')
-        ai_data = grenerate_ai_enhanced_data("sudo", "commands", [seed_data], count)
+        ai_data = generate_ai_enhanced_data("sudo", "commands", [seed_data], count)
         random.shuffle(ai_data)        
 
         save_ai_learning_data('sudo')
@@ -119,11 +120,11 @@ class AFLSudoSeedGenerator:
 
     def generate_all_seeds(self, count: int = 2000) -> int:
         """生成所有类型的种子"""
-        print(f"🌱 开始生成 {count} 个 AFL++ sudo 种子...")
+        print(f"开始生成 {count} 个 AFL++ sudo 种子...")
         
         # 获取 AI 增强数据
         ai_data = self.generate_ai_enhanced_data()
-        print(f"🧠 AI 数据生成完成: {ai_data}")
+        print(f"AI 数据生成完成: {ai_data}")
         # # 生成不同类型的种子
         all_seeds = ai_data.get('commands', [])
         
@@ -144,7 +145,7 @@ class AFLSudoSeedGenerator:
             if self.save_seed(seed_content, prefix="sudo", seed_type="command"):
                 saved_count += 1
         
-        print(f"✅ 成功生成并保存 {saved_count} 个种子到 {self.output_dir}")
+        print(f"成功生成并保存 {saved_count} 个种子到 {self.output_dir}")
         return saved_count
     
     def save_ai_seed(self, seed_content: str, prefix: str = "sudo", seed_type: str = "command") -> bool:
@@ -160,13 +161,13 @@ class AFLSudoSeedGenerator:
 
 set -e
 
-echo "🚀 启动 AFL++ sudo 模糊测试"
+echo "启动 AFL++ sudo 模糊测试"
 echo "种子目录: {self.output_dir}"
 echo "目标程序: {target_binary}"
 
 # 检查 AFL++ 是否安装
 if ! command -v afl-fuzz &> /dev/null; then
-    echo "❌ AFL++ 未安装，请先安装"
+    echo "Error: AFL++ 未安装，请先安装"
     exit 1
 fi
 
@@ -186,15 +187,15 @@ mkdir -p afl_output
 
 # 检查目标程序
 if ! command -v {target_binary} &> /dev/null; then
-    echo "❌ 目标程序 {target_binary} 不存在"
+    echo "Error: 目标程序 {target_binary} 不存在"
     exit 1
 fi
 
 # 启动 AFL++
-echo "🎯 开始模糊测试..."
+echo "开始模糊测试..."
 afl-fuzz -i {self.output_dir} -o afl_output -t 1000+ -m none -- {target_binary} @@
 
-echo "✅ AFL++ 模糊测试完成"
+echo "AFL++ 模糊测试完成"
 echo "结果保存在: afl_output/"
 echo "查看崩溃: ls afl_output/default/crashes/"
 """
@@ -210,19 +211,19 @@ echo "查看崩溃: ls afl_output/default/crashes/"
     def validate_seeds(self) -> bool:
         """验证生成的种子文件"""
         if not self.output_dir.exists():
-            print("❌ 种子目录不存在")
+            print("Error: 种子目录不存在")
             return False
         
         seed_files = list(self.output_dir.glob("*"))
         if not seed_files:
-            print("❌ 没有找到种子文件")
+            print("Error: 没有找到种子文件")
             return False
         
-        print(f"✅ 找到 {len(seed_files)} 个种子文件")
+        print(f"找到 {len(seed_files)} 个种子文件")
         
         # 检查文件大小分布
         sizes = [f.stat().st_size for f in seed_files]
-        print(f"📊 种子大小: 最小={min(sizes)}字节, 最大={max(sizes)}字节, 平均={sum(sizes)//len(sizes)}字节")
+        print(f"种子大小: 最小={min(sizes)}字节, 最大={max(sizes)}字节, 平均={sum(sizes)//len(sizes)}字节")
         
         return True
 
@@ -265,7 +266,7 @@ def main():
     if args.create_script:
         script_file = generator.create_afl_script(args.target)
     
-    print("\n🎯 生成完成！")
+    print("\n生成完成！")
     print(f"种子目录: {args.output}")
     print(f"种子数量: {seed_count}")
     
@@ -277,7 +278,7 @@ def main():
         print("\n手动运行 AFL++:")
         print(f"  afl-fuzz -i {args.output} -o afl_output -- {args.target} @@")
     
-    print("\n⚠️  警告: 这些种子包含潜在危险的命令，仅用于安全测试！")
+    print("\nWarning: 警告: 这些种子包含潜在危险的命令，仅用于安全测试！")
 
 
 

@@ -1,0 +1,87 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 52d6b44..0f199b2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -74,7 +74,7 @@ add_executable(afl-showmap
+   )
+ 
+ if (${TINYINST})
+-  target_link_libraries(afl-showmap winafl_tinyinst)
++  target_link_libraries(afl-showmap winafl_tinyinst msvcrt.lib)
+ endif()
+ 
+ project(afl-tmin)
+@@ -134,6 +134,9 @@ if (${TINYINST})
+     tinyinst_afl.cpp
+     )
+ 
++  # TinyInst 模式的静态库不进 DynamoRIO, 强制动态 CRT 与 tinyinst.lib/xed 一致
++  # (DynamoRIO 的 CMake 配置全局加了 /MT, 这里用 /MD 覆盖, MSVC 后者生效)
++  target_compile_options(winafl_tinyinst PRIVATE /MD)
+   target_link_libraries(winafl_tinyinst tinyinst)
+   target_link_libraries(winafl_tinyinst "onecore.lib")
+ 
+@@ -169,7 +172,7 @@ if (${INTELPT})
+ endif()
+ 
+ if (${TINYINST})
+-  target_link_libraries(afl-fuzz winafl_tinyinst)
++  target_link_libraries(afl-fuzz winafl_tinyinst msvcrt.lib)
+ endif()
+ 
+ if (NOT "${DynamoRIO_DIR}" STREQUAL "")
+diff --git a/afl-fuzz.c b/afl-fuzz.c
+index 88db5d5..6c05794 100644
+--- a/afl-fuzz.c
++++ b/afl-fuzz.c
+@@ -2917,7 +2917,7 @@ static u8 run_target(char** argv, u32 timeout) {
+   }
+   if (result != 'P')
+   {
+-	  FATAL("Unexpected result from pipe! expected 'P', instead received '%c'\n", result);
++	  if (result == 'C') { DWORD exc=ReadDWORDFromPipe(timeout); DWORD typ=ReadDWORDFromPipe(timeout); DWORD alo=ReadDWORDFromPipe(timeout); DWORD ahi=ReadDWORDFromPipe(timeout); DWORD ilo=ReadDWORDFromPipe(timeout); DWORD ihi=ReadDWORDFromPipe(timeout); FATAL("C: exc=0x%08x type=%u addr=0x%08x%08x instr=0x%08x%08x\n", exc, typ, ahi, alo, ihi, ilo); } FATAL("Unexpected result from pipe! expected 'P', instead received '%c'\n", result);
+   }
+   WriteCommandToPipe('F');
+ 
+diff --git a/winafl.c b/winafl.c
+index 445e637..3b104f1 100644
+--- a/winafl.c
++++ b/winafl.c
+@@ -237,7 +237,7 @@ onexception(void *drcontext, dr_exception_t *excpt) {
+                 dr_fprintf(winafl_data.log, "crashed\n");
+             } else {
+ 				WriteCommandToPipe('C');
+-				WriteDWORDCommandToPipe(exception_code);				
++				WriteDWORDCommandToPipe(exception_code); WriteDWORDCommandToPipe((DWORD)(excpt->record->NumberParameters >= 1 ? excpt->record->ExceptionInformation[0] : 0)); WriteDWORDCommandToPipe((DWORD)(excpt->record->NumberParameters >= 2 ? excpt->record->ExceptionInformation[1] : 0)); WriteDWORDCommandToPipe((DWORD)((excpt->record->NumberParameters >= 2 ? excpt->record->ExceptionInformation[1] : 0) >> 32)); WriteDWORDCommandToPipe((DWORD)(size_t)excpt->record->ExceptionAddress); WriteDWORDCommandToPipe((DWORD)((size_t)excpt->record->ExceptionAddress >> 32));				
+             }
+             dr_exit_process(1);
+     }
+@@ -339,9 +339,17 @@ instrument_bb_coverage(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
+ 
+ 	} else {
+ 
++      /* x64 修复: afl_area 是 MapViewOfFile 的共享内存, 在 25H2 上可能被映射到
++         >4GB 高位地址, OPND_CREATE_ABSMEM 只支持低 4GB 会截断地址导致 AV。
++         改用 movabs + 寄存器间接寻址, 与 thread_coverage 分支同思路。 */
++      reg_id_t reg;
++      drreg_reserve_register(drcontext, bb, inst, NULL, &reg);
+       instrlist_meta_preinsert(bb, inst,
+-          INSTR_CREATE_inc(drcontext, OPND_CREATE_ABSMEM
+-          (&(afl_map[offset]), OPSZ_1)));
++          INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg),
++                               OPND_CREATE_INTPTR(afl_map)));
++      instrlist_meta_preinsert(bb, inst,
++          INSTR_CREATE_inc(drcontext, OPND_CREATE_MEM8(reg, offset)));
++      drreg_unreserve_register(drcontext, bb, inst, reg);
+ 
+ 	  ret = DR_EMIT_DEFAULT;
+     }
+@@ -997,7 +1005,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
+ 
+     options_init(id, argc, argv);
+ 
+-    dr_register_exit_event(event_exit);
++    drmgr_register_exit_event(event_exit);
+ 
+     drmgr_register_exception_event(onexception);
+ 

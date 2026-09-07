@@ -8,6 +8,7 @@ import sys
 import time
 import argparse
 import struct
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -21,18 +22,18 @@ def create_dns_requests():
     # 初始化符号执行引擎
     
 
-    print("🧠 使用AI增强生成DNS测试数据...")
+    print("Using AI to generate DNS test data...")
 
     # 使用AI增强的协议数据生成
     try:
         symbolic_domain_names = generate_protocol_data('dns', 'domains', 15, use_ai=True)
         symbolic_query_types = generate_protocol_data('dns', 'qtypes', 10, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_domain_names)} 个DNS域名变异")
-        print(f"✅ AI生成了 {len(symbolic_query_types)} 个DNS查询类型变异")
+        print(f"AI generated {len(symbolic_domain_names)} DNS domain name variants")
+        print(f"AI generated {len(symbolic_query_types)} DNS query type variants")
 
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_domain_names = [
             "test.com", "example.org", "malicious.evil", "localhost.local",
@@ -263,7 +264,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🌐 Enhanced DNS Protocol Fuzzer")
+    print("Enhanced DNS Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Protocol: {'UDP' if args.udp else 'TCP'}")
@@ -271,12 +272,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_dns_requests()
-        print(f"✅ Successfully created {len(requests)} DNS request templates")
+        print(f"Successfully created {len(requests)} DNS request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -285,7 +286,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -295,7 +296,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="udp" if args.udp else "tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -307,27 +308,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
 
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建DNS请求
     requests = create_dns_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始DNS协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标DNS服务器执行潜在危险的操作!")
+    print("Starting DNS protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target DNS server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 DNS模糊测试完成")
+        try:
+            save_ai_learning_data("dns")
+        except Exception:
+            pass
+        print("DNS fuzzing completed")
 
 if __name__ == "__main__":
     main()

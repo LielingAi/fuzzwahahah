@@ -10,7 +10,7 @@ protocol:
 
 symbolic_data:
   test_messages:
-    type: "values"
+    type: "messages"
     count: 15
 
 requests:

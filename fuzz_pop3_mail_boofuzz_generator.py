@@ -26,6 +26,7 @@ from datetime import datetime
 # 将 boofuzz 添加到 Python 路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
+import fw_vendor  # vendored boofuzz path bootstrap
 import boofuzz as bf
 
 
@@ -96,37 +97,37 @@ def create_fuzz_request():
     bf.s_string(f'sender_{generate_random_string(5)}@example.com', name="from_header_value")
     # 可选：增加一个使用特殊字符的变体 fuzz 点
     # bf.s_string(f'sender_{generate_special_random_string(5)}@example.com', name="from_header_value_special")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     bf.s_static("To: ")
     # 在收件人中也引入特殊字符 fuzz
     bf.s_string(f'recipient_{generate_random_string(5)}@example.com', name="to_header_value")
     # 可选：增加一个使用特殊字符的变体 fuzz 点
     # bf.s_string(f'recipient_{generate_special_random_string(5)}@example.com', name="to_header_value_special")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     bf.s_static("Subject: Fuzz Test for CVE-XXXX-YYYY - ")
     # 在主题中引入特殊字符 fuzz
     bf.s_string(generate_random_string(10), name="subject_random_part")
     # 增加一个使用特殊字符的 fuzz 点
     bf.s_string(generate_special_random_string(10), name="subject_special_random_part")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
-    bf.s_static("Date: Mon, 01 Jan 2024 12:00:00 +0000\\r\\n")
-    bf.s_static("MIME-Version: 1.0\\r\\n")
-    bf.s_static("Content-Type: text/plain; charset=utf-8\\r\\n")
+    bf.s_static("Date: Mon, 01 Jan 2024 12:00:00 +0000\r\n")
+    bf.s_static("MIME-Version: 1.0\r\n")
+    bf.s_static("Content-Type: text/plain; charset=utf-8\r\n")
 
     bf.s_static("X-Normal-Header: For comparison - ")
     # 在普通头部值中引入特殊字符 fuzz
     bf.s_string(generate_random_string(15), name="normal_header_value")
     # 增加一个使用特殊字符的 fuzz 点
     bf.s_string(generate_special_random_string(15), name="normal_header_value_special")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     # --- 添加专门用于触发漏洞的头部 ---
     # 使用 `s_static` 定义核心模式，因为这些是精确触发漏洞的关键部分。
     # 我们也可以使用 `s_string` 或 `s_group` 来对这些模式的某些部分进行 fuzz。
-    bf.s_static(f"X-Original-Header-Dot: {HEADER_DOT_PATTERN}\\r\\n")
+    bf.s_static(f"X-Original-Header-Dot: {HEADER_DOT_PATTERN}\r\n")
 
     bf.s_static("X-EOB-Test-Header: ")
     bf.s_static(HEADER_EOB_PATTERN_PREFIX)
@@ -135,7 +136,7 @@ def create_fuzz_request():
     bf.s_string(generate_random_string(10), name="eob_header_random_part")
     # 增加一个使用特殊字符的 fuzz 点
     bf.s_string(generate_special_random_string(10), name="eob_header_random_part_special")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
     
     # --- 头部破坏触发点 ---
     # 利用 B 漏洞在头部注入 `\r\n.`，尝试干扰头部解析
@@ -145,17 +146,17 @@ def create_fuzz_request():
     bf.s_string(generate_random_string(7), name="header_boom_random")
     # 增加一个使用特殊字符的 fuzz 点
     bf.s_string(generate_special_random_string(7), name="header_boom_random_special")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     # 增加更多可 fuzz 的头部，以增加复杂性
     bf.s_static("X-Another-Dot-Header: ")
     bf.s_string(".Another dot test line.", name="another_dot_header_value")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     bf.s_static("X-Another-EOB-Header: ")
     bf.s_static("..AnotherEOBTriggerZ ")
     bf.s_string(generate_random_string(8), name="eob_header_random_part2")
-    bf.s_static("\\r\\n")
+    bf.s_static("\r\n")
 
     # 使用 Group 来 fuzz 一些常见的头部名
     header_names = ["X-Custom-Fuzz1", "X-Custom-Fuzz2", "X-Custom-Fuzz3", "X-Powered-By", "X-Version", "MIME-Version", "Content-Type", "Content-Transfer-Encoding"]
@@ -182,7 +183,7 @@ def create_fuzz_request():
     bf.s_static("\r\n")
 
     # --- 邮件头部与体部的分隔符 ---
-    bf.s_static("\\r\\n") # This signifies the end of headers
+    bf.s_static("\r\n") # This signifies the end of headers
 
     # --- 邮件体部部分 ---
     # 体部也可以被高度 fuzz
@@ -247,7 +248,7 @@ def create_fuzz_request():
     bf.s_static("End of the email body.\r\n")
 
     # POP3 EOB (End of Body marker) - 通常保持静态
-    bf.s_static(".\\r\\n")
+    bf.s_static(".\r\n")
 
     print(f"[+] Boofuzz request '{REQUEST_NAME}' successfully initialized for fuzzing.")
     return bf.s_get(REQUEST_NAME)
@@ -352,25 +353,16 @@ def main():
         def close(self): pass
         def open(self): pass
         def recv(self, max_bytes): return b""
-        def send(self, data): pass # 丢弃数据
-        def info(self): return "Dummy Connection for EML Generation" # 实现 info 方法
+        def send(self, data):
+            # 丢弃数据，但返回发送字节数，保持与真实连接的行为一致
+            return len(data)
+
+        @property
+        def info(self):
+            return "Dummy Connection for EML Generation"
 
     target = bf.Target(connection=DummyConnection())
     
-    # 创建 Session，禁用网络相关检查，因为我们只是生成文件
-    session = bf.Session(
-        target=target,
-        fuzz_loggers=[eml_logger],
-        receive_data_after_each_request=False,
-        check_data_received_each_request=False,
-        receive_data_after_fuzz=False,
-        # 可以通过这个参数限制生成的测试用例数量
-        # 但我们将在循环中手动控制
-    )
-
-    # 4. 将请求连接到 session
-    session.connect(request)
-
     # 5. 运行 fuzzing
     # 使用 Session 的构造函数参数来限制测试用例数量，这是推荐的方式
     # 并禁用 web_server 以避免事件循环问题和不必要的交互
@@ -399,17 +391,13 @@ def main():
         session.fuzz()
             
     except KeyboardInterrupt:
-        print("\\n[!] Fuzzing interrupted by user.")
+        print("\n[!] Fuzzing interrupted by user.")
     except Exception as e:
-        print(f"\\n[!] An error occurred during fuzzing: {e}")
+        print(f"\n[!] An error occurred during fuzzing: {e}")
         import traceback
         traceback.print_exc()
     finally:
         print(f"[#] Fuzzing session finished. Check '{args.output_dir}' for output files.")
-
-
-if __name__ == '__main__':
-    main()
 
 
 if __name__ == '__main__':

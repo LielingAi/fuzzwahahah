@@ -8,6 +8,7 @@ import sys
 import time
 import argparse
 import struct
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -19,7 +20,7 @@ def create_ssh_requests():
     """创建增强的SSH请求模板"""
     
     
-    print("🧠 使用AI增强生成SSH测试数据...")
+    print("Using AI to generate SSH test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -28,49 +29,18 @@ def create_ssh_requests():
         symbolic_passwords = generate_protocol_data('ssh', 'passwords', 12, use_ai=True)
         symbolic_algorithms = generate_protocol_data('ssh', 'algorithms', 10, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_versions)} 个SSH版本变异")
-        print(f"✅ AI生成了 {len(symbolic_usernames)} 个SSH用户名变异")
-        print(f"✅ AI生成了 {len(symbolic_passwords)} 个SSH密码变异")
-        print(f"✅ AI生成了 {len(symbolic_algorithms)} 个SSH算法变异")
+        print(f"AI generated {len(symbolic_versions)} SSH version variants")
+        print(f"AI generated {len(symbolic_usernames)} SSH username variants")
+        print(f"AI generated {len(symbolic_passwords)} SSH password variants")
+        print(f"AI generated {len(symbolic_algorithms)} SSH algorithm variants")
 
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_versions = ['SSH-2.0-OpenSSH_8.0', 'SSH-2.0-libssh_0.8.0', 'SSH-1.99-Cisco-1.25']
         symbolic_usernames = ['root', 'admin', 'user', 'guest', 'test']
         symbolic_passwords = ['password', 'admin', '123456', 'root', 'test']
         symbolic_algorithms = ['diffie-hellman-group14-sha256', 'ecdh-sha2-nistp256']
-# 初始化符号执行引擎
-    
-    
-    print("🧠 生成SSH符号执行数据...")
-    
-    # SSH版本字符串分析
-    ssh_versions = []
-    
-    # SSH算法协商分析
-    ssh_algorithms = []
-    
-    # SSH认证数据分析
-    ssh_auth = []
-    
-    print(f"✅ 生成了 {len(ssh_versions)} 个SSH版本变异")
-    print(f"✅ 生成了 {len(ssh_algorithms)} 个SSH算法变异")
-    print(f"✅ 生成了 {len(ssh_auth)} 个SSH认证变异")
-    
-    # 使用基础测试数据
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SSH测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SSH测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成SSH测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data()
     
     requests = []
     
@@ -344,7 +314,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🔐 Enhanced SSH Protocol Fuzzer")
+    print("Enhanced SSH Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Username: {args.username}")
@@ -352,12 +322,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_ssh_requests()
-        print(f"✅ Successfully created {len(requests)} SSH request templates")
+        print(f"Successfully created {len(requests)} SSH request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -370,7 +340,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -380,7 +350,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -392,27 +362,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建SSH请求
     requests = create_ssh_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始SSH协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标SSH服务器执行潜在危险的操作!")
+    print("Starting SSH protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target SSH server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 SSH模糊测试完成")
+        try:
+            save_ai_learning_data("ssh")
+        except Exception:
+            pass
+        print("SSH fuzzing completed")
 
 if __name__ == "__main__":
     main()

@@ -7,14 +7,19 @@ Simple Echo Protocol Fuzzer for Testing
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data, convert_to_bytes
+from boofuzz.utils.enhanced_symbolic_execution import (
+    generate_protocol_data,
+    convert_to_bytes,
+    save_ai_learning_data
+)
 
 def create_echo_requests():
     """创建增强的Echo请求模板"""
     
     
-    print("🧠 使用AI增强生成Echo测试数据...")
+    print("Using AI to generate Echo test data...")
 
     # 使用AI增强的协议数据生成
     try:
@@ -25,12 +30,12 @@ def create_echo_requests():
         # 合并所有测试数据
         all_test_data = test_messages + test_data + test_patterns
 
-        print(f"✅ AI生成了 {len(test_messages)} 个Echo消息变异")
-        print(f"✅ AI生成了 {len(test_data)} 个Echo数据变异")
-        print(f"✅ AI生成了 {len(test_patterns)} 个Echo模式变异")
+        print(f"AI generated {len(test_messages)} Echo message variants")
+        print(f"AI generated {len(test_data)} Echo data variants")
+        print(f"AI generated {len(test_patterns)} Echo pattern variants")
 
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         all_test_data = ["Hello", "Test", "Echo", "Hello World!", "123456", "Test Message"]
     
@@ -41,7 +46,7 @@ def create_echo_requests():
     
     # 使用AI增强的测试数据
     s_group("message", values=all_test_data)
-    s_delim("\\n")
+    s_delim("\n")
     
     
     requests.append(s_get("ECHO_SIMPLE"))
@@ -50,7 +55,7 @@ def create_echo_requests():
     s_initialize("ECHO_BINARY")
     
     s_random("binary_data", min_length=10, max_length=100)
-    s_delim("\\n")
+    s_delim("\n")
     
     
     requests.append(s_get("ECHO_BINARY"))
@@ -61,7 +66,7 @@ def create_echo_requests():
     # 静态数据组
     overflow_data_data = ["A", "AA", "AAA"]
     s_group("overflow_data", values=overflow_data_data)
-    s_delim("\\n")
+    s_delim("\n")
     
     
     requests.append(s_get("ECHO_OVERFLOW"))
@@ -77,19 +82,19 @@ def main():
     parser.add_argument("--web-port", type=int, default=26012, help="Web interface port")
     args = parser.parse_args()
     
-    print("🚀 Enhanced Echo Protocol Fuzzer")
+    print("Enhanced Echo Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Web Interface: http://localhost:{args.web_port}")
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_echo_requests()
-        print(f"✅ Successfully created {len(requests)} Echo request templates")
+        print(f"Successfully created {len(requests)} Echo request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -99,7 +104,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -109,7 +114,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
     
         ),
@@ -122,25 +127,29 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建Echo请求
     requests = create_echo_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始Echo协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
+    print("Starting Echo protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 Echo模糊测试完成")
+        try:
+            save_ai_learning_data("echo")
+        except Exception:
+            pass
+        print("Echo fuzzing completed")
 
 if __name__ == "__main__":
     main()

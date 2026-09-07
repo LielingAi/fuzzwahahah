@@ -7,6 +7,7 @@ Enhanced HTTP Protocol Fuzzer with Symbolic Execution
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data,
@@ -18,7 +19,7 @@ def create_http_requests():
     """创建增强的HTTP请求模板"""
     
     # 使用AI增强的符号执行数据生成
-    print("🧠 使用AI增强生成HTTP测试数据...")
+    print("Using AI to generate HTTP test data...")
 
     # 使用AI增强的协议数据生成
     symbolic_methods = generate_protocol_data('http', 'methods', 15, use_ai=True)
@@ -28,10 +29,10 @@ def create_http_requests():
     symbolic_param_names = generate_protocol_data('http', 'params', 15, use_ai=True)
     symbolic_param_values = generate_protocol_data('http', 'values', 25, use_ai=True)
 
-    print(f"✅ AI生成了 {len(symbolic_methods)} 个HTTP方法变异")
-    print(f"✅ AI生成了 {len(symbolic_paths)} 个HTTP路径变异")
-    print(f"✅ AI生成了 {len(symbolic_header_names)} 个HTTP头部变异")
-    print(f"✅ AI生成了 {len(symbolic_param_names)} 个HTTP参数变异")
+    print(f"AI generated {len(symbolic_methods)} HTTP method variants")
+    print(f"AI generated {len(symbolic_paths)} HTTP path variants")
+    print(f"AI generated {len(symbolic_header_names)} HTTP header variants")
+    print(f"AI generated {len(symbolic_param_names)} HTTP parameter variants")
     
     requests = []
     
@@ -151,7 +152,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🌐 Enhanced HTTP Protocol Fuzzer")
+    print("Enhanced HTTP Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"SSL: {'Yes' if args.ssl else 'No'}")
@@ -159,12 +160,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_http_requests()
-        print(f"✅ Successfully created {len(requests)} HTTP request templates")
+        print(f"Successfully created {len(requests)} HTTP request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -172,7 +173,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -182,7 +183,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="ssl" if args.ssl else "tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -194,26 +195,30 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
 
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建HTTP请求
     requests = create_http_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始HTTP协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
+    print("Starting HTTP protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 HTTP模糊测试完成")
+        try:
+            save_ai_learning_data("http")
+        except Exception:
+            pass
+        print("HTTP fuzzing completed")
 
 if __name__ == "__main__":
     main()

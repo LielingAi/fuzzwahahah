@@ -1,0 +1,1 @@
+ BUILDDIR/xed-enc-asmparse -q lock mov edi, dword ptr [ecx]

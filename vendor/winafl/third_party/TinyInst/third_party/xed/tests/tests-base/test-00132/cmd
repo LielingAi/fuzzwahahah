@@ -1,0 +1,1 @@
+ BUILDDIR/xed-enc MOV AL MEM1:GS:-,-,-,11223344

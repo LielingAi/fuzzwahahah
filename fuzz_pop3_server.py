@@ -18,6 +18,7 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
     def __init__(self, mail_dir_path, chunk_size=None, delay=None, delete_after_send=False):
         self.transport = None
         self.state = "AUTHORIZATION"  # As per RFC 1939
+        self._buffer = b""  # 行缓冲: 累积TCP分段数据，按完整行处理
         self.mail_dir_path = mail_dir_path # Store the path to the directory of .eml files
         self.chunk_size = chunk_size
         self.delay = delay # Delay in seconds between chunks
@@ -62,10 +63,25 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
         self.transport.write(b"+OK POP3 Fuzz Server ready" + POP3_LINE_TERM)
 
     def data_received(self, data):
-        """Called when data is received from the client."""
+        """Called when data is received from the client.
+
+        TCP 可能将一条命令分段送达，因此先把数据累积到缓冲区，
+        只有收到以 \\n 结尾的完整行才解析，残余部分留在缓冲区。
+        """
+        self._buffer += data
+        while True:
+            newline_idx = self._buffer.find(b"\n")
+            if newline_idx == -1:
+                break  # 尚无完整行，等待更多数据
+            line = self._buffer[:newline_idx].rstrip(b"\r")  # 兼容 \r\n 和 \n 结尾
+            self._buffer = self._buffer[newline_idx + 1:]
+            self._process_line(line)
+
+    def _process_line(self, line):
+        """处理一条完整的POP3命令行（保留原有命令解析逻辑）。"""
         try:
-            # Decode command, handling potential partial receives
-            message = data.decode('utf-8', errors='ignore').rstrip('\r\n')
+            # Decode command
+            message = line.decode('utf-8', errors='ignore')
             print(f"[SERVER] Received: {message}")
             parts = message.split(' ')
             command = parts[0].upper() if parts else ""
@@ -507,34 +523,9 @@ class POP3FuzzServerProtocol(asyncio.Protocol):
         
         # Always end multi-line data responses with the POP3 terminator
         print("[SERVER] (RETR) About to send EOB marker.")
-        # --- DIAGNOSTIC: Try direct socket write ---
-        raw_socket = None
-        try:
-            # Get the underlying socket
-            raw_socket = self.transport._sock
-            print(f"[SERVER] (RETR) Raw socket type: {type(raw_socket)}")
-            # Directly send the EOB marker using the raw socket
-            bytes_sent = raw_socket.send(b"." + POP3_LINE_TERM)
-            print(f"[SERVER] (RETR) Direct socket send() returned: {bytes_sent} bytes sent.")
-            
-            # --- NEW: Try to force the OS to send the data by shutting down the write side ---
-            import socket
-            raw_socket.shutdown(socket.SHUT_WR)
-            print("[SERVER] (RETR) Raw socket SHUT_WR called.")
-            # --- NEW ---
-            
-        except Exception as e:
-            print(f"[SERVER] (RETR) Error during direct socket write/shutdown: {e}")
-        # --- DIAGNOSTIC ---
-        print("[SERVER] (RETR) EOB marker sent (via transport or direct socket).")
-        # Diagnostic: Print transport info
-        print(f"[SERVER] (RETR) Transport type: {type(self.transport)}")
-        print(f"[SERVER] (RETR) Transport is_closing: {self.transport.is_closing()}")
-        # --- DECISIVE TEST: Force wait for 5 seconds ---
-        print("[SERVER] (RETR) Starting 5-second wait after direct socket shutdown...")
-        await asyncio.sleep(5) # Wait 5 seconds
-        print("[SERVER] (RETR) 5-second wait finished.")
-        # --- DECISIVE TEST ---
+        self.transport.write(b"." + POP3_LINE_TERM)
+        print("[SERVER] (RETR) EOB marker sent.")
+
 
 
     def connection_lost(self, exc):

@@ -7,6 +7,7 @@ MQTT Protocol Fuzzer with AI Enhancement
 import sys
 import time
 import argparse
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data,
@@ -18,7 +19,7 @@ from boofuzz.utils.enhanced_symbolic_execution import (
 def create_mqtt_requests():
     """创建增强的MQTT请求模板"""
     
-    print("🧠 生成MQTT符号执行数据...")
+    print("Generating MQTT symbolic execution data...")
     
     # 使用增强的符号执行框架生成测试数据
     symbolic_topics = generate_protocol_data('mqtt', 'topics', 10, use_ai=True)
@@ -29,7 +30,7 @@ def create_mqtt_requests():
     symbolic_protocol_names = generate_protocol_data('mqtt', 'protocol_names', 10, use_ai=True)
     
     
-    print(f"✅ 准备了符号执行测试数据")
+    print("Symbolic execution test data prepared")
     
     requests = []
     
@@ -90,19 +91,19 @@ def main():
     parser.add_argument("--web-port", type=int, default=26020, help="Web interface port")
     args = parser.parse_args()
     
-    print("🚀 Enhanced MQTT Protocol Fuzzer")
+    print("Enhanced MQTT Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Web Interface: http://localhost:{args.web_port}")
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_mqtt_requests()
-        print(f"✅ Successfully created {len(requests)} MQTT request templates")
+        print(f"Successfully created {len(requests)} MQTT request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -112,7 +113,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
 
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -122,7 +123,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -134,25 +135,29 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
 
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建MQTT请求
     requests = create_mqtt_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始MQTT协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
+    print("Starting MQTT protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 MQTT模糊测试完成")
+        try:
+            save_ai_learning_data("mqtt")
+        except Exception:
+            pass
+        print("MQTT fuzzing completed")
 
 if __name__ == "__main__":
     main()

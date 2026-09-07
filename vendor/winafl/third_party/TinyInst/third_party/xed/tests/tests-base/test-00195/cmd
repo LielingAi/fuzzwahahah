@@ -1,0 +1,1 @@
+ BUILDDIR/xed-dec -chip PENTIUMPRO f2 f3 a7

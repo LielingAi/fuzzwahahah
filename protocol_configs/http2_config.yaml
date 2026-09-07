@@ -44,8 +44,7 @@ requests:
   - name: "HTTP/2 SETTINGS Frame"
     id: "HTTP2_SETTINGS"
     fields:
-      - type: "static"
-        primitive: "size"
+      - type: "size"
         name: "frame_length"
         target: "settings_payload"
         length: 3
@@ -167,8 +166,7 @@ requests:
   - name: "HTTP/2 WINDOW_UPDATE Frame"
     id: "HTTP2_WINDOW_UPDATE"
     fields:
-      - type: "static"
-        primitive: "size"
+      - type: "size"
         name: "frame_length"
         target: "window_payload"
         length: 3
@@ -199,8 +197,7 @@ requests:
   - name: "HTTP/2 Malicious Frame"
     id: "HTTP2_MALICIOUS"
     fields:
-      - type: "static"
-        primitive: "size"
+      - type: "size"
         name: "frame_length"
         target: "malicious_payload"
         length: 3

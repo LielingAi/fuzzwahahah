@@ -25,6 +25,7 @@ import argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 标准boofuzz导入 - 这是关键！
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 
 # 导入符号执行功能
@@ -35,10 +36,10 @@ try:
     save_ai_learning_data
 )
     SYMBOLIC_EXECUTION_AVAILABLE = True
-    print("✅ 符号执行模块导入成功")
+    print("Symbolic execution module imported successfully")
 except ImportError as e:
     SYMBOLIC_EXECUTION_AVAILABLE = False
-    print(f"⚠️ 符号执行模块不可用: {e}")
+    print(f"Symbolic execution module unavailable: {e}")
 
 
 def generate_symbolic_ftp_values():
@@ -48,7 +49,7 @@ def generate_symbolic_ftp_values():
     symbolic_values = {}
 
     if SYMBOLIC_EXECUTION_AVAILABLE:
-        print("🧠 使用AI增强生成FTP测试数据...")
+        print("Using AI to generate FTP test data...")
 
         try:
             # 使用AI增强的协议数据生成
@@ -57,12 +58,12 @@ def generate_symbolic_ftp_values():
             symbolic_values['commands'] = generate_protocol_data('ftp', 'commands', 20, use_ai=True)
             symbolic_values['paths'] = generate_protocol_data('ftp', 'paths', 25, use_ai=True)
 
-            print(f"  ✅ AI生成了 {len(symbolic_values)} 类FTP测试数据")
+            print(f"  AI generated {len(symbolic_values)} categories of FTP test data")
             for key, values in symbolic_values.items():
                 print(f"    • {key}: {len(values)} 个值")
 
         except Exception as e:
-            print(f"  ⚠️ AI数据生成失败: {e}")
+            print(f"  AI data generation failed: {e}")
             # 使用基础数据作为后备
             symbolic_values = {
                 'usernames': ["anonymous", "admin", "root", "ftp", "test"],
@@ -71,7 +72,7 @@ def generate_symbolic_ftp_values():
                 'paths': ["/", "/etc/passwd", "../../../etc/passwd", "test.txt"]
             }
     else:
-        print("⚠️ AI增强功能不可用，使用默认值")
+        print("AI enhancement unavailable, using default values")
         symbolic_values = {
             'usernames': ["anonymous", "admin", "root", "ftp", "test"],
             'passwords': ["", "password", "admin", "123456", "ftp"],
@@ -91,7 +92,7 @@ def define_ftp_protocol(session):
     符号执行会增强测试值的生成。
     """
 
-    print("📋 定义FTP协议请求...")
+    print("Defining FTP protocol requests...")
 
     # 生成符号执行增强的测试值
     symbolic_values = generate_symbolic_ftp_values()
@@ -103,7 +104,7 @@ def define_ftp_protocol(session):
     username_values = ["anonymous", "admin", "root", "ftp", "test"]
     if symbolic_values.get('usernames'):
         username_values.extend(symbolic_values['usernames'])
-        print(f"  🧠 USER命令增强: 添加了 {len(symbolic_values['usernames'])} 个符号执行用户名")
+        print(f"  USER command enhanced: added {len(symbolic_values['usernames'])} symbolic execution usernames")
 
     user = Request("user", children=(
         String(name="command", default_value="USER"),      # 自动优化
@@ -137,10 +138,10 @@ def define_ftp_protocol(session):
     filename_values = ["test.txt", "../etc/passwd", "../../windows/system32", "/etc/shadow", "config.ini"]
     if symbolic_values.get('paths'):
         filename_values.extend(symbolic_values['paths'])
-        print(f"  🧠 RETR命令增强: 添加了 {len(symbolic_values['paths'])} 个符号执行路径")
+        print(f"  RETR command enhanced: added {len(symbolic_values['paths'])} symbolic execution paths")
     if symbolic_values.get('constraint_based'):
         filename_values.extend([v for v in symbolic_values['constraint_based'] if isinstance(v, str)])
-        print(f"  🧠 RETR命令增强: 添加了约束生成的文件名")
+        print(f"  RETR command enhanced: added constraint-generated filenames")
 
     retr = Request("retr", children=(
         String(name="command", default_value="RETR"),      # 自动优化
@@ -187,7 +188,7 @@ def define_ftp_protocol(session):
     
     # ===== 连接协议流程 =====
     # 使用boofuzz的connect方法定义FTP会话流程
-    print("🔗 连接FTP协议流程...")
+    print("Connecting FTP protocol flow...")
     
     # 基本认证流程
     session.connect(user)           # 开始：USER命令
@@ -207,7 +208,7 @@ def define_ftp_protocol(session):
     session.connect(list_cmd, retr)  # LIST -> RETR
     session.connect(cwd, list_cmd)   # CWD -> LIST
     
-    print("✅ FTP协议定义完成")
+    print("FTP protocol definition completed")
     print(f"  • 定义了 8 个FTP请求类型")
     print(f"  • 包含认证、文件操作、目录操作")
     print(f"  • 包含安全测试（溢出、路径遍历）")
@@ -232,7 +233,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🎯 boofuzz FTP FUZZ工具")
+    print("boofuzz FTP FUZZ Tool")
     print("=" * 40)
     print(f"目标: {args.target}:{args.port}")
     print(f"Web界面: http://localhost:{args.web_port}")
@@ -240,7 +241,7 @@ def main():
     try:
         # ===== 创建boofuzz Session =====
         # 这是标准的boofuzz架构
-        print("\n🔧 创建boofuzz会话...")
+        print("\nCreating boofuzz session...")
 
         # 创建Target对象
         target = Target(connection=TCPSocketConnection(args.target, args.port))
@@ -261,45 +262,49 @@ def main():
         session.ai_decision_threshold = 0.15
         session.ai_adaptation_interval = 50
 
-        print("🤖 AI自适应策略已启用")
-        print("✅ boofuzz会话创建成功")
+        print("AI adaptive strategy enabled")
+        print("boofuzz session created successfully")
 
         # ===== 定义FTP协议 =====
         # 使用我们的协议定义函数
         define_ftp_protocol(session)
 
         # ===== 显示优化信息 =====
-        print(f"\n🚀 优化功能状态:")
-        print(f"  ✅ String primitives: 自动缓存、去重、智能变异")
-        print(f"  ✅ RandomData primitives: 批量生成、内存优化")
-        print(f"  ✅ Web界面增强: 实时性能监控")
+        print("\nOptimization feature status:")
+        print(f"  String primitives: auto caching, dedup, smart mutation")
+        print(f"  RandomData primitives: batch generation, memory optimization")
+        print(f"  Web interface enhanced: real-time performance monitoring")
 
         if SYMBOLIC_EXECUTION_AVAILABLE:
-            print(f"  ✅ AI增强: 协议感知的智能生成 (已集成)")
+            print(f"  AI enhancement: protocol-aware smart generation (integrated)")
         else:
-            print(f"  ⚠️ AI增强: 不可用 (使用标准boofuzz生成)")
+            print(f"  AI enhancement: unavailable (using standard boofuzz generation)")
 
         if args.dry_run:
-            print(f"\n🧪 DRY RUN 模式 - 配置完成")
-            print(f"移除 --dry-run 参数开始真实FUZZ")
+            print("\nDRY RUN mode - configuration completed")
+            print("Remove --dry-run to start real fuzzing")
             return
 
-        print(f"\n🚀 开始FTP FUZZ...")
-        print(f"⚠️  这将向 {args.target}:{args.port} 发送FTP数据包")
-        print(f"📊 监控进度: http://localhost:{args.web_port}")
-        print(f"\n按 Ctrl+C 停止FUZZ")
+        print("\nStarting FTP fuzzing...")
+        print(f"WARNING: this will send FTP packets to {args.target}:{args.port}")
+        print(f"Monitor: http://localhost:{args.web_port}")
+        print("\nPress Ctrl+C to stop fuzzing")
 
         # ===== 开始FUZZ =====
         # 使用标准boofuzz方法开始FUZZ
         session.fuzz()
 
     except KeyboardInterrupt:
-        print(f"\n🛑 用户停止FUZZ")
+        print("\nFuzzing stopped by user")
     except Exception as e:
-        print(f"\n❌ 错误: {e}")
+        print(f"\nError: {e}")
         print(f"请确保目标FTP服务器正在运行且可访问")
-    
-    print(f"\n✅ boofuzz FTP FUZZ完成")
+    finally:
+        try:
+            save_ai_learning_data("ftp")
+        except Exception:
+            pass
+        print("\nboofuzz FTP fuzzing completed")
 
 
 def create_test_server():
@@ -409,15 +414,15 @@ if __name__ == "__main__":
         with open('ftp_test_server.py', 'w') as f:
             f.write(server_code)
         
-        print("✅ 测试FTP服务器已创建: ftp_test_server.py")
-        print("📋 使用步骤:")
+        print("Test FTP server created: ftp_test_server.py")
+        print("Usage:")
         print("  1. 启动服务器: python ftp_test_server.py")
         print("  2. 运行FUZZ: python boofuzz_ftp_fuzzer.py 127.0.0.1 2121")
         print("  3. 监控Web界面: http://localhost:5000")
         return True
         
     except Exception as e:
-        print(f"❌ 创建测试服务器失败: {e}")
+        print(f"Failed to create test server: {e}")
         return False
 
 

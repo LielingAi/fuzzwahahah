@@ -23,7 +23,7 @@ class ProtocolFuzzerGenerator:
             from boofuzz.utils.enhanced_symbolic_execution import ProtocolSymbolicEngine
             self.symbolic_engine = ProtocolSymbolicEngine()
         except ImportError:
-            print("⚠️  无法导入符号执行引擎，将使用基础功能")
+            print("Warning: 无法导入符号执行引擎，将使用基础功能")
             self.symbolic_engine = None
     
     def ensure_template_dir(self):
@@ -60,7 +60,12 @@ class ProtocolFuzzerGenerator:
     def generate_fuzzer(self, config_file: str,  symbolic_file: str, output_file: str = None) -> str:
         """根据配置生成模糊测试工具"""
         config = self.load_protocol_config(config_file)
-        symbolic_data_config = self.load_protocol_config(symbolic_file)
+        # 可选: 从独立文件加载数据变量定义, 与 config 内嵌 symbolic_data 合并(内嵌优先)
+        symbolic_data_config = self.load_protocol_config(symbolic_file) if symbolic_file else {}
+        merged_symbolic_data = dict(symbolic_data_config)
+        merged_symbolic_data.update(config.get('symbolic_data', {}))
+        if merged_symbolic_data:
+            config['symbolic_data'] = merged_symbolic_data
         # 验证配置
         self._validate_config(config)
         
@@ -77,7 +82,7 @@ class ProtocolFuzzerGenerator:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(fuzzer_code)
         
-        print(f"✅ 生成协议模糊测试工具: {output_path}")
+        print(f"生成协议模糊测试工具: {output_path}")
         return output_path
     
     def _validate_config(self, config: Dict[str, Any]):
@@ -102,7 +107,9 @@ class ProtocolFuzzerGenerator:
             'requests': config['requests'],
             'imports': config.get('imports', []),
             'helpers': config.get('helpers', {}),
-            'symbolic_data': symbolic_data_config,
+            # symbolic_data 来自 config 内嵌定义 (变量名 -> {type, count});
+            # 数据词典由引擎运行时从 protocol_templates/ 目录加载
+            'symbolic_data': config.get('symbolic_data', {}),
             'web_port': config.get('web_port', 26000),
             'description': config.get('description', f"{config['protocol']['name']} Protocol Fuzzer")
         }
@@ -121,15 +128,28 @@ class ProtocolFuzzerGenerator:
                             # 正常的值，转换为JSON字符串
                             field['values_str'] = json.dumps(field['values'])
                     except Exception as e:
-                        print(f"⚠️  处理字段 {field.get('name', 'Unknown')} 的values时出错: {e}")
+                        print(f"Warning: 处理字段 {field.get('name', 'Unknown')} 的values时出错: {e}")
                         field['values_str'] = "[]"
         
+        # 预处理 helpers: 多行 code 的后续行按首行缩进归一化后补 4 空格,
+        # 使其正确嵌套在渲染出的函数体内
+        for helper in template_vars.get('helpers', {}).values():
+            if isinstance(helper, dict) and isinstance(helper.get('code'), str):
+                lines = helper['code'].splitlines()
+                if len(lines) > 1:
+                    first_indent = len(lines[0]) - len(lines[0].lstrip())
+                    normalized = [lines[0].lstrip()]
+                    for ln in lines[1:]:
+                        stripped = ln[first_indent:] if ln[:first_indent].strip() == '' else ln
+                        normalized.append('    ' + stripped)
+                    helper['code'] = '\n'.join(normalized)
+
         # 渲染模板
         try:
             return template.render(**template_vars)
         except Exception as e:
-            print(f"❌ 模板渲染失败: {e}")
-            print(f"📋 模板变量: {list(template_vars.keys())}")
+            print(f"Error: 模板渲染失败: {e}")
+            print(f"模板变量: {list(template_vars.keys())}")
             # 检查requests中的字段
             for i, req in enumerate(template_vars.get('requests', [])):
                 print(f"Request {i}: {req.get('name', 'Unknown')}")
@@ -153,6 +173,7 @@ import argparse
 {% for import_item in imports -%}
 import {{ import_item }}
 {% endfor -%}
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data,
@@ -164,14 +185,14 @@ from boofuzz.utils.enhanced_symbolic_execution import (
 def create_{{ protocol.name.lower() }}_requests():
     """创建增强的{{ protocol.name }}请求模板"""
     
-    print("🧠 生成{{ protocol.name }}符号执行数据...")
+    print("生成{{ protocol.name }}符号执行数据...")
     
     # 使用增强的符号执行框架生成测试数据
     {% for data_name in symbolic_data -%}
-    symbolic_{{ data_name }} = generate_protocol_data('{{ protocol.name.lower() }}', '{{ data_name }}', {{ symbolic_data[data_name].len | default(10) }}, use_ai=True)
+    symbolic_{{ data_name }} = generate_protocol_data('{{ protocol.name.lower() }}', '{{ symbolic_data[data_name].type | default("values") }}', {{ symbolic_data[data_name].count | default(10) }}, use_ai=True)
     {% endfor %}
     
-    print(f"✅ 准备了符号执行测试数据")
+    print(f"准备了符号执行测试数据")
     
     requests = []
     
@@ -181,7 +202,7 @@ def create_{{ protocol.name.lower() }}_requests():
     
     {% for field in request.fields -%}
     {% if field.type == 'static' -%}
-    s_{{ field.primitive }}({{ field.value }}, name="{{ field.name }}"{% if field.endian %}, endian="{{ field.endian }}"{% endif %})
+    s_{{ field.primitive }}({{ field.value | default("") | tojson }}, name="{{ field.name }}"{% if field.endian %}, endian="{{ field.endian }}"{% endif %})
     {% elif field.type == 'size' -%}
     s_size("{{ field.target }}", length={{ field.length }}{% if field.endian %}, endian="{{ field.endian }}"{% endif %}{% if field.name %}, name="{{ field.name }}"{% endif %})
     {% elif field.type == 'block_start' -%}
@@ -192,20 +213,24 @@ def create_{{ protocol.name.lower() }}_requests():
     {% if field.data_source -%}
     # 使用符号执行数据
     {% if field.convert_to_bytes -%}
-    {{ field.name }}_bytes = [convert_to_bytes(item, '{{ field.byte_format | default("auto") }}') for item in {{ field.data_source }}]
+    {{ field.name }}_bytes = [convert_to_bytes(item, '{{ field.byte_format | default("auto") }}') for item in symbolic_{{ field.data_source }}]
     s_group("{{ field.name }}", values={{ field.name }}_bytes)
     {% else -%}
-    s_group("{{ field.name }}", values={{ field.data_source }})
+    s_group("{{ field.name }}", values=symbolic_{{ field.data_source }})
     {% endif -%}
     {% else -%}
     # 静态数据组
+    {% if field.convert_to_bytes -%}
+    {{ field.name }}_data = [convert_to_bytes(item, '{{ field.byte_format | default("auto") }}') for item in {{ field.values_str }}]
+    {% else -%}
     {{ field.name }}_data = {{ field.values_str }}
+    {% endif -%}
     s_group("{{ field.name }}", values={{ field.name }}_data)
     {% endif -%}
     {% elif field.type == 'string' -%}
-    s_string("{{ field.value }}")
+    s_string({{ field.value | tojson }})
     {% elif field.type == 'delim' -%}
-    s_delim("{{ field.value }}")
+    s_delim({{ field.value | tojson }})
     {% elif field.type == 'random' -%}
     s_random("{{ field.name }}", min_length={{ field.min_length }}, max_length={{ field.max_length }})
     {% elif field.type == 'custom' -%}
@@ -244,7 +269,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🚀 Enhanced {{ protocol.name }} Protocol Fuzzer")
+    print("Enhanced {{ protocol.name }} Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     {% if protocol.transport == 'ssl' -%}
@@ -257,12 +282,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_{{ protocol.name.lower() }}_requests()
-        print(f"✅ Successfully created {len(requests)} {{ protocol.name }} request templates")
+        print(f"Successfully created {len(requests)} {{ protocol.name }} request templates")
         
         for i, req in enumerate(requests):
-            print(f"\\n📋 Request {i+1}: {req.name}")
+            print(f"\\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -278,7 +303,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
 
-        print("\\n✅ Dry run completed successfully!")
+        print("\\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -288,7 +313,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="{% if protocol.transport == 'ssl' %}ssl{% elif protocol.transport == 'udp' %}udp{% else %}tcp{% endif %}",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
         ),
         web_port=args.web_port,
@@ -300,29 +325,29 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
 
-    print("🤖 AI自适应策略已启用")
+    print("AI自适应策略已启用")
     
     # 创建{{ protocol.name }}请求
     requests = create_{{ protocol.name.lower() }}_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始{{ protocol.name }}协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
+    print(f"开始{{ protocol.name }}协议模糊测试...")
+    print(f"监控界面: http://localhost:{args.web_port}")
     {% if protocol.dangerous -%}
-    print("⚠️  警告: 这将对目标{{ protocol.name }}服务器执行潜在危险的操作!")
+    print("Warning: 警告: 这将对目标{{ protocol.name }}服务器执行潜在危险的操作!")
     {% endif -%}
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\\n⏹️  用户中断测试")
+        print("\\n用户中断测试")
     except Exception as e:
-        print(f"\\n❌ 测试过程中出现错误: {e}")
+        print(f"\\nError: 测试过程中出现错误: {e}")
     finally:
-        print("🏁 {{ protocol.name }}模糊测试完成")
+        print("{{ protocol.name }}模糊测试完成")
 
 if __name__ == "__main__":
     main()
@@ -333,8 +358,8 @@ if __name__ == "__main__":
         """创建示例配置文件"""
         # 检查协议是否存在
         if not self.protocol_exists(protocol_name):
-            print(f"❌ 协议 '{protocol_name}' 不存在")
-            print("📋 可用协议:")
+            print(f"Error: 协议 '{protocol_name}' 不存在")
+            print("可用协议:")
             for protocol in sorted(self.get_available_protocols()):
                 print(f"   - {protocol}")
             return None
@@ -347,7 +372,7 @@ if __name__ == "__main__":
         with open(output_file, 'w', encoding='utf-8') as f:
             yaml.dump(sample_config, f, default_flow_style=False, allow_unicode=True)
 
-        print(f"✅ 创建示例配置文件: {output_file}")
+        print(f"创建示例配置文件: {output_file}")
         return output_file
     
     def _get_sample_config(self, protocol_name: str) -> Dict[str, Any]:
@@ -425,7 +450,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="Protocol Fuzzer Generator")
     parser.add_argument("--config", help="Protocol configuration file")
-    parser.add_argument("--symbolic", help="Protocol to generate symbolic data for .json")
+    parser.add_argument("--symbolic", help="可选: 数据变量定义文件 ({变量名: {type, count}}), 与配置内嵌 symbolic_data 合并")
     parser.add_argument("--output", help="Output fuzzer file")
     parser.add_argument("--create-sample", help="Create sample config for protocol")
     parser.add_argument("--list-templates", action="store_true", help="List available templates")
@@ -436,15 +461,15 @@ def main():
     
     if args.create_sample:
         generator.create_sample_config(args.create_sample)
-    elif args.config and args.symbolic:        
-        generator.generate_fuzzer(args.config, args.symbolic ,args.output)
+    elif args.config:
+        generator.generate_fuzzer(args.config, args.symbolic, args.output)
     elif args.list_templates:
-        print("📋 Available protocol templates:")
+        print("Available protocol templates:")
         available_protocols = generator.get_available_protocols()
         for protocol in sorted(available_protocols):
             print(f"- {protocol}")
-        print(f"\\n💡 Total: {len(available_protocols)} protocols available")
-        print("💡 Use --create-sample <protocol> to create a configuration template")
+        print(f"\\nTotal: {len(available_protocols)} protocols available")
+        print("Use --create-sample <protocol> to create a configuration template")
     else:
         parser.print_help()
 

@@ -8,6 +8,7 @@ import sys
 import time
 import argparse
 import struct
+import fw_vendor  # vendored boofuzz path bootstrap
 from boofuzz import *
 from boofuzz.utils.enhanced_symbolic_execution import (
     generate_protocol_data, 
@@ -19,7 +20,7 @@ def create_mssql_requests():
     """创建增强的MSSQL请求模板"""
     
     
-    print("🧠 使用AI增强生成MSSQL测试数据...")
+    print("Using AI to generate MSSQL test data...")
     
     # 使用AI增强的协议数据生成
     try:
@@ -28,49 +29,18 @@ def create_mssql_requests():
         symbolic_tables = generate_protocol_data('mssql', 'tables', 10, use_ai=True)
         symbolic_procedures = generate_protocol_data('mssql', 'procedures', 8, use_ai=True)
 
-        print(f"✅ AI生成了 {len(symbolic_queries)} 个MSSQL查询变异")
-        print(f"✅ AI生成了 {len(symbolic_databases)} 个数据库变异")
-        print(f"✅ AI生成了 {len(symbolic_tables)} 个表名变异")
-        print(f"✅ AI生成了 {len(symbolic_procedures)} 个存储过程变异")
+        print(f"AI generated {len(symbolic_queries)} MSSQL query variants")
+        print(f"AI generated {len(symbolic_databases)} database variants")
+        print(f"AI generated {len(symbolic_tables)} table name variants")
+        print(f"AI generated {len(symbolic_procedures)} stored procedure variants")
 
     except Exception as e:
-        print(f"⚠️  AI数据生成失败，使用基础数据: {e}")
+        print(f"AI data generation failed, using base data: {e}")
         # 使用基础数据作为后备
         symbolic_queries = ["SELECT @@VERSION", "SELECT SYSTEM_USER", "EXEC sp_helpdb"]
         symbolic_databases = ["master", "tempdb", "msdb", "model"]
         symbolic_tables = ["sysobjects", "sysusers", "syscolumns"]
         symbolic_procedures = ["sp_help", "sp_helpdb", "sp_who", "xp_cmdshell"]
-# 初始化符号执行引擎
-    
-    
-    print("🧠 生成MSSQL符号执行数据...")
-    
-    # T-SQL查询分析
-    tsql_queries = []
-    
-    # 数据库对象分析
-    db_objects = []
-    
-    # 存储过程分析
-    stored_procs = []
-    
-    print(f"✅ 生成了 {len(tsql_queries)} 个T-SQL查询变异")
-    print(f"✅ 生成了 {len(db_objects)} 个数据库对象变异")
-    print(f"✅ 生成了 {len(stored_procs)} 个存储过程变异")
-    
-    # 提取符号执行生成的值
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MSSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data().get('query', 'SELECT 1') for item in tsql_queries[:20]]
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MSSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data().get('object', 'sysobjects') for item in db_objects[:15]]
-    # 使用AI增强的协议数据生成
-    print("🧠 使用AI增强生成MSSQL测试数据...")
-    
-    # AI增强的数据生成将在下面的代码中使用generate_protocol_data().get('procedure', 'sp_help') for item in stored_procs[:10]]
     
     requests = []
     
@@ -287,7 +257,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🗄️  Enhanced MSSQL Protocol Fuzzer")
+    print("Enhanced MSSQL Protocol Fuzzer")
     print("=" * 50)
     print(f"Target: {args.target}:{args.port}")
     print(f"Username: {args.username}")
@@ -296,12 +266,12 @@ def main():
     print()
     
     if args.dry_run:
-        print("🧪 Dry run mode - testing request generation...")
+        print("Dry run mode - testing request generation...")
         requests = create_mssql_requests()
-        print(f"✅ Successfully created {len(requests)} MSSQL request templates")
+        print(f"Successfully created {len(requests)} MSSQL request templates")
         
         for i, req in enumerate(requests):
-            print(f"\n📋 Request {i+1}: {req.name}")
+            print(f"\nRequest {i+1}: {req.name}")
             try:
                 rendered = req.render()
                 print(f"   Size: {len(rendered)} bytes")
@@ -311,7 +281,7 @@ def main():
             except Exception as e:
                 print(f"   Error: {e}")
         
-        print("\n✅ Dry run completed successfully!")
+        print("\nDry run completed successfully!")
         return
     
     # 创建会话
@@ -321,7 +291,7 @@ def main():
                 host=args.target,
                 port=args.port,
                 proto="tcp",
-                timeout=args.timeout
+                send_timeout=args.timeout, recv_timeout=args.timeout
             )
     
         ),
@@ -334,27 +304,31 @@ def main():
     session.ai_decision_threshold = 0.15
     session.ai_adaptation_interval = 50
     
-    print("🤖 AI自适应策略已启用")
+    print("AI adaptive strategy enabled")
     
     # 创建MSSQL请求
     requests = create_mssql_requests()
     
     # 添加请求到会话
     for request in requests:
-        session.connect(s_get("target"), request)
+        session.connect(request)
     
-    print(f"🚀 开始MSSQL协议模糊测试...")
-    print(f"📊 监控界面: http://localhost:{args.web_port}")
-    print("⚠️  警告: 这将对目标MSSQL服务器执行潜在危险的操作!")
+    print("Starting MSSQL protocol fuzzing...")
+    print(f"Monitor: http://localhost:{args.web_port}")
+    print("WARNING: this will perform potentially dangerous operations against the target MSSQL server!")
     
     try:
         session.fuzz()
     except KeyboardInterrupt:
-        print("\n⏹️  用户中断测试")
+        print("\nFuzzing interrupted by user")
     except Exception as e:
-        print(f"\n❌测试过程中出现错误: {e}")
+        print(f"\nError during fuzzing: {e}")
     finally:
-        print("🏁 MSSQL模糊测试完成")
+        try:
+            save_ai_learning_data("mssql")
+        except Exception:
+            pass
+        print("MSSQL fuzzing completed")
 
 if __name__ == "__main__":
     main()
