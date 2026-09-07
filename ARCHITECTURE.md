@@ -428,6 +428,29 @@ recovery 确定性信封（`--magic` 给定时）。protocol/browser 的语法�
 程序语法）与字节 Grammar 不同构，当前跑引擎+观察+报告，闭环在语法层统一后接入。
 端到端验证：DeepSeek 综合 `crc_lzma_envelope` → 闭环覆盖 0→309。
 
+### 10.3e Loop Agent 工作流（2026-09-07）
+
+工具形态的本质修正：`FuzzJobRunner.run(max_rounds=N)` 的外部固定循环改为
+**LoopAgent 自主工作流**（`fuzzcore/agent/loop_agent.py`）——agent 是循环的主人：
+
+```
+loop_until_done(budget_s):
+  while not should_stop():          # agent 自主判断终止(预算/收敛/出bug)
+      obs  = observe()              # 覆盖/崩溃/队列/学习数据
+      plan = decide(obs)            # 策略选择(continue/reflex/escalate_llm/triage/stop)
+      act(plan)                     # 行动(种子/注入/重启消化/分诊)
+      learn(obs, plan)              # 学习(策略成功率进 Corpus 跨任务)
+  return report()                   # TaskReport(覆盖+崩溃+策略统计+学习结论)
+```
+
+五要素（WREN 审定）：隐式状态机(decide 返回动作+phase 调试字段)、双层记忆
+(内存+Corpus)、LLM 配额(llm_budget 内最多 N 次, 超出回退反射弧)、保守收敛
+(converge_rounds 轮无进展+无崩溃)。
+
+真实引擎验证（7z harness，budget 40s）：agent 自主决策序列
+`continue→reflex→recovered(87→96)→still_plateau→escalate_llm→LLM 种子回流→
+覆盖 261→293→budget 终止`——反射弧有效用它、无效升级 LLM、自主终止，全绿。
+
 ### 10.4 反馈契约（feedback_kind）
 
 `Engine.feedback_kind`：EDGE_COVERAGE（真边覆盖，平台期自救有效）/

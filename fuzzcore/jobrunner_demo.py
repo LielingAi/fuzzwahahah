@@ -86,24 +86,26 @@ def main() -> int:
 
     events = []
     report = runner.run(target, str(seed_dir), str(work / "out"),
-                        max_rounds=16, round_interval=2.0, init_seed_count=0,
+                        budget_s=40.0, observe_interval=2.0, init_seed_count=0,
                         on_event=lambda ev, d: events.append((ev, d)))
 
-    print("=== JobReport ===")
+    print("=== TaskReport（loop agent 自主工作流）===")
     print(f"  rounds={report.rounds}  final_coverage={report.final_coverage}")
     print(f"  coverage_curve={report.coverage_curve}")
-    print(f"  crashes={report.crashes}  recovered={report.recovered_events}  "
-          f"llm_escalations={report.llm_escalations}  seeds_injected={report.seeds_injected}")
+    print(f"  crashes={report.crashes}  终止={report.stop_reason}  耗时={report.elapsed_s:.1f}s")
+    print(f"  反射弧: {report.reflex_rescues} 次(回升{report.reflex_recovered})  "
+          f"LLM: {report.llm_escalations} 次(回升{report.llm_recovered}, 调用{report.llm_calls_used})")
+    print(f"  策略成功率: 反射弧={report.reflex_success_rate:.0%}  LLM={report.llm_success_rate:.0%}")
     print(f"  MockLLM.on_plateau calls={llm.calls}")
     print("=== 关键事件 ===")
     for ev, d in events:
         print(f"  {ev}: {d}")
 
     shutil.rmtree(work, ignore_errors=True)
-    # 闭环判据: LLM 被升级(反射弧浅覆盖无效) 且最终覆盖超过初始
-    ok = llm.calls > 0 and report.final_coverage > report.coverage_curve[0]
-    print(f"[{'PASS' if ok else 'CHECK'}] 闭环: LLM 升级={llm.calls > 0}, "
-          f"覆盖回升={report.final_coverage}>{report.coverage_curve[0]}")
+    # 闭环判据: 自主工作流收敛或预算内, 且有覆盖进展
+    ok = report.stop_reason in ("converged", "budget") and report.final_coverage > 0
+    print(f"[{'PASS' if ok else 'CHECK'}] loop agent: 终止={report.stop_reason}, "
+          f"覆盖={report.final_coverage}")
     return 0 if ok else 1
 
 

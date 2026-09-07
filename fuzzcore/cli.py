@@ -112,10 +112,10 @@ def _run_binary(args) -> int:
 
     runner = FuzzJobRunner(engine, grammar, corpus, orchestrator=llm,
                            digest_delay=args.digest_delay)
-    print(f"[cli] 启动闭环: target={args.target} grammar={grammar.name} llm={args.llm}",
-          flush=True)
+    print(f"[cli] 启动 loop agent: target={args.target} grammar={grammar.name} "
+          f"llm={args.llm} budget={args.budget}s", flush=True)
     report = runner.run(target, args.seed_dir, args.out,
-                        max_rounds=args.rounds, round_interval=args.interval,
+                        budget_s=args.budget, observe_interval=args.interval,
                         init_seed_count=args.init_seeds,
                         on_event=lambda ev, d: print(f"  [{ev}] {d}", flush=True))
     _print_report(report)
@@ -136,7 +136,8 @@ def _run_protocol(args) -> int:
                           timeout=args.timeout, max_cases=args.max_cases)
     try:
         import time
-        for _ in range(args.rounds):
+        start = time.time()
+        while time.time() - start < args.budget:
             time.sleep(args.interval)
             status = engine.status(handle)
             print(f"  [obs] cases={status.coverage.total_paths} "
@@ -170,7 +171,8 @@ def _run_browser(args) -> int:
     handle = engine.start(target, args.seed_dir, args.out)
     try:
         import time
-        for _ in range(args.rounds):
+        start = time.time()
+        while time.time() - start < args.budget:
             time.sleep(args.interval)
             cov = engine.export_coverage(handle)
             print(f"  [obs] crashes={cov.unique_crashes}", flush=True)
@@ -184,12 +186,14 @@ def _run_browser(args) -> int:
 
 
 def _print_report(report) -> None:
-    print("=== JobReport ===")
+    print("=== TaskReport ===")
     print(f"  target={report.target_id}  rounds={report.rounds}")
     print(f"  coverage_curve={report.coverage_curve}")
     print(f"  final_coverage={report.final_coverage}  crashes={report.crashes}")
-    print(f"  recovered={report.recovered_events}  llm_escalations={report.llm_escalations}  "
-          f"seeds_injected={report.seeds_injected}")
+    print(f"  反射弧: {report.reflex_rescues} 次 (回升 {report.reflex_recovered})  "
+          f"LLM: {report.llm_escalations} 次 (回升 {report.llm_recovered}, "
+          f"调用 {report.llm_calls_used})")
+    print(f"  终止: {report.stop_reason}  耗时: {report.elapsed_s:.1f}s")
 
 
 def main() -> int:
@@ -219,7 +223,8 @@ def main() -> int:
     run.add_argument("--profile", default="", help="Fuzzilli profile（默认 qjs）")
     # 通用
     run.add_argument("--llm", choices=["deepseek", "kimi", "none"], default="deepseek")
-    run.add_argument("--rounds", type=int, default=20)
+    run.add_argument("--budget", type=float, default=60.0,
+                     help="任务时间预算秒（loop agent 自主控制循环到此为止）")
     run.add_argument("--interval", type=float, default=2.0, help="观察间隔秒")
     run.add_argument("--digest-delay", type=float, default=2.0, help="注入消化等待秒")
     run.add_argument("--init-seeds", type=int, default=10, help="新目标初始种子数")
