@@ -6,7 +6,8 @@ FuzzWahahah 是一个面向 Windows 平台的覆盖引导（coverage-guided）�
 
 - **三类目标的统一引擎抽象**：AFL++/WinAFL（TinyInst）、libFuzzer、boofuzz、Fuzzilli 各自作为可插拔的内层引擎，平台统一启动、观察、注入种子、收集覆盖与崩溃。
 - **结构感知的种子合成**：从二进制恢复输入格式结构（magic / length / checksum），合成不破坏校验和的合法种子，并通过验证门（VerificationGate）拦截坏种子。
-- **LLM 编排**：LLM agent 在外层循环（秒级）做平台期自救、定向种子生成、崩溃分诊与 harness 合成，所有产出强制过验证门，幻觉无法进入语料库。
+- **LLM 编排**：LLM agent 在外层循环（秒级）做平台期自救、定向种子生成、崩溃分诊与 harness 合成，所有产出强制过验证门，幻觉无法进入语料库。两种可互换的 LLM 后端：Kimi Code（ACP 会话）与 DeepSeek（OpenAI-compatible function calling）。
+- **完整闭环**：`FuzzJobRunner` 把新目标接入、稳态 fuzz、平台期反射弧自救、连续无效升级 LLM、LLM 语义种子回流、覆盖回升串成自驱动状态机；引擎+反射弧能解决的目标不惊动 LLM。
 - **协议会话状态机**：Grammar IR 支持会话级状态机（login → command → logout），合成与验证合法会话序列。
 
 ## 当前状态

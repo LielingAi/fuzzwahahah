@@ -11,6 +11,26 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
+# Grammar 字段类型白名单（严格校验：未知 type 会导致 SeedSynthesis/VerificationGate
+# 静默跳过该字段, 产出残缺种子且验证门误判通过 —— 必须在注册期拒绝）
+FIELD_TYPES = ("magic", "checksum", "length", "blob", "raw", "uint")
+
+_FIELD_TYPE_EXAMPLE = (
+    "示例: {\"name\": \"magic\", \"type\": \"magic\", \"offset\": 0, \"size\": 5, "
+    "\"value\": \"89504e47\"}; {\"name\": \"len\", \"type\": \"length\", \"size\": 4, "
+    "\"length_of\": \"blob\"}; {\"name\": \"crc\", \"type\": \"checksum\", \"size\": 4, "
+    "\"algorithm\": \"crc32\", \"over\": [\"blob\"]}; {\"name\": \"blob\", \"type\": \"blob\"}"
+)
+
+
+def validate_field_type(type_str: str) -> None:
+    """严格校验字段类型在白名单内，否则抛出带合法 type 与示例的 ValueError。"""
+    if type_str not in FIELD_TYPES:
+        raise ValueError(
+            f"unknown field type {type_str!r}; 合法 type: "
+            f"{'/'.join(FIELD_TYPES)}. {_FIELD_TYPE_EXAMPLE}"
+        )
+
 
 @dataclass
 class Field:
@@ -30,7 +50,9 @@ class Field:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Field":
-        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
+        f = cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
+        validate_field_type(f.type)
+        return f
 
 
 @dataclass

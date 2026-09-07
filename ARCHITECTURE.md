@@ -372,6 +372,46 @@ fuzzwahahah/
 已验证：`llm_agent` 冒烟测试（真实 Kimi Code 会话）——LLM 自主发现并调用
 `get_status`，拿到真实平台状态（corpus/queue/grammars）。
 
+### 10.3b 完整闭环（2026-09-07，真实引擎 + 真实 LLM 已验证）
+
+补全了 LLM 编排的完整闭环（此前四个断点已修）：
+
+1. **grammar 统一**：`make_corpus_seed_generator` 从 Corpus 按名取 grammar，
+   规则自救与 LLM 编排共用同一来源（不再内存对象 vs Corpus 两套）。
+2. **种子拉取接通**：`FuzzLoopAgent.step` 自救**先 `pull_seeds`（消费 LLM 队列）
+   再 `generate_seeds`（反射弧兜底）**——LLM 种子经 SQLite 队列流入下一轮 pull。
+3. **升级钩子**：连续 `escalate_after` 次 `still_plateau` 后经 `on_escalate`
+   升级 LLM 编排（不再手动喂事件）。
+4. **统一编排器 `FuzzJobRunner`**（`fuzzcore/agent/runner.py`）：新目标接入
+   （register grammar + 初始种子）→ 稳态 fuzz → 平台期反射弧自救 → 连续无效
+   升级 LLM → LLM 语义种子经队列回流 → 覆盖回升，自驱动状态机 + `JobReport`。
+
+**SeedDigestCycle 延迟判定修正**：第一版 restart 后立即 observe 看不到引擎消化
+新种子，误报 still_plateau 导致误升级 LLM。改为 inject 后记基线、下一轮 observe
+对比判 recovered/still_plateau——反射弧真有效时不误升级（闭环的省钱设计成立：
+引擎+反射弧能解决的门不惊动 LLM）。
+
+**端到端验证**（`fuzzcore/jobrunner_demo.py`，真实 7z harness CRC32 门）：
+recovered=2，覆盖 0→310，反射弧穿门成功；`jobrunner_llm_demo.py` 验证真实
+Kimi Code 编排链路。
+
+### 10.3c 严格校验 + DeepSeek 后端（2026-09-07）
+
+**IR 严格校验**（`fuzzcore/grammar/ir.py`）：`Field.from_dict` 白名单校验
+`magic/checksum/length/blob/raw/uint`。动机是发现一个真实漏洞——LLM 用不规范
+type（bytes/u32）时，`SeedSynthesis`/`VerificationGate` 静默跳过这些字段，
+种子残缺（只有 blob）且验证门误判通过。严格校验在 `register_grammar` 期拒绝，
+错误信息带合法 type + 正确示例（LLM 的自我修正提示）。
+
+**DeepSeek 后端**（`llm_agent/deepseek_orchestrator.py`）：OpenAI-compatible
+function calling，进程内执行 fuzzcore 工具（复用 `MCPServer` 实现，无子进程，
+比 ACP 轻）。与 Kimi Code ACP 并存可互换。key 经 `OPENAI_API_KEY` 环境变量。
+
+**真实 DeepSeek 验证**（新目标接入，严格校验下自我修正）：DeepSeek 综合 grammar
+首次因缺 algorithm 被拒，读错误提示补 crc32 后通过；产出 21 字节真 LZMA 信封
+种子（magic props + length + crc32 + blob），5 个全过验证门。对比无严格校验时
+Kimi Code 的不规范 type 产出的是 8 字节全零残缺种子且验证门误判通过。
+
 ### 10.4 反馈契约（feedback_kind）
 
 `Engine.feedback_kind`：EDGE_COVERAGE（真边覆盖，平台期自救有效）/
@@ -388,7 +428,9 @@ vendored 侧（Session AI / enhanced engine）保持写 JSON（不反向依赖�
 
 ### 10.6 v2 待办（外部工具链）
 
-- WinAFL/DynamoRIO（Windows 25H2 代码缓存 bug）→ 文件格式黑盒路径
-- fuzzillai 构建（swift build + 子模块）+ d8 → 浏览器路径
-- Grammar IR 的 state_machine / container → 协议语法层
+- ~~WinAFL/DynamoRIO（Windows 25H2 代码缓存 bug）~~ → **已解决：TinyInst 后端**（§6 Phase 1）
+- ~~fuzzillai 构建（swift build + 子模块）~~ → **已完成：FuzzilliCli.exe + QuickJS REPRL Windows 移植**（§6 Phase 6b）
+- ~~Grammar IR 的 state_machine~~ → **已完成：ProtocolState**（协议会话状态机）
+- Grammar IR 的 container（嵌套 TLV）→ 后续
+- v8/d8（depot_tools + gclient sync 网络依赖）→ 浏览器真实目标（QuickJS 已可用）
 - cdb.exe 安装 → CrashTriage 实测
