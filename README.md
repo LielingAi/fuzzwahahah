@@ -7,7 +7,8 @@ FuzzWahahah 是一个面向 Windows 平台的覆盖引导（coverage-guided）�
 - **三类目标的统一引擎抽象**：AFL++/WinAFL（TinyInst）、libFuzzer、boofuzz、Fuzzilli 各自作为可插拔的内层引擎，平台统一启动、观察、注入种子、收集覆盖与崩溃。
 - **结构感知的种子合成**：从二进制恢复输入格式结构（magic / length / checksum），合成不破坏校验和的合法种子，并通过验证门（VerificationGate）拦截坏种子。
 - **LLM 编排**：LLM agent 在外层循环（秒级）做平台期自救、定向种子生成、崩溃分诊与 harness 合成，所有产出强制过验证门，幻觉无法进入语料库。两种可互换的 LLM 后端：Kimi Code（ACP 会话）与 DeepSeek（OpenAI-compatible function calling）。
-- **完整闭环**：`FuzzJobRunner` 把新目标接入、稳态 fuzz、平台期反射弧自救、连续无效升级 LLM、LLM 语义种子回流、覆盖回升串成自驱动状态机；引擎+反射弧能解决的目标不惊动 LLM。
+- **Loop agent 工作流**：agent 是 fuzzing 任务循环的主人——自主控制"观察→决策→行动→学习→判断终止"循环，策略选择（继续/反射弧/升级 LLM/分诊/停）基于累积的学习数据（策略成功率跨任务持久化），自主判断收敛/预算/出 bug 后终止，产出任务报告。不是"跑 N 轮"，是 agent 自主工作到出结果。
+- **完整闭环**：新目标接入（LLM 综合 grammar）→ 稳态 fuzz → 平台期反射弧自救 → 连续无效升级 LLM → LLM 语义种子回流 → 覆盖回升，全程自驱动；引擎+反射弧能解决的目标不惊动 LLM。
 - **协议会话状态机**：Grammar IR 支持会话级状态机（login → command → logout），合成与验证合法会话序列。
 
 ## 当前状态
@@ -37,7 +38,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 
 运行示例：
 
-**统一入口**（推荐）：`fuzz run` 一条命令跑完整任务（新目标接入 → fuzz → 平台期反射弧自救 → 无效升级 LLM → 覆盖回升）：
+**统一入口**（推荐）：`fuzz run` 一条命令跑完整任务——loop agent 自主工作流（agent 自主控制"观察→决策→行动→学习→判断终止"，直到收敛/预算/出 bug，产出任务报告）：
 
 ```powershell
 # 文件格式（完整闭环，LLM 综合 grammar + 编排）

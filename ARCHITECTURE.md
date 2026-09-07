@@ -470,6 +470,10 @@ vendored 侧（Session AI / enhanced engine）保持写 JSON（不反向依赖�
 - ~~WinAFL/DynamoRIO（Windows 25H2 代码缓存 bug）~~ → **已解决：TinyInst 后端**（§6 Phase 1）
 - ~~fuzzillai 构建（swift build + 子模块）~~ → **已完成：FuzzilliCli.exe + QuickJS REPRL Windows 移植**（§6 Phase 6b）
 - ~~Grammar IR 的 state_machine~~ → **已完成：ProtocolState**（协议会话状态机）
+- ~~统一 CLI~~ → **已完成：fuzz run/report**（§10.3d）
+- ~~LoopAgent 工作流~~ → **已完成：自主工作流**（§10.3e）
 - Grammar IR 的 container（嵌套 TLV）→ 后续
 - v8/d8（depot_tools + gclient sync 网络依赖）→ 浏览器真实目标（QuickJS 已可用）
 - cdb.exe 安装 → CrashTriage 实测
+- LoopAgent 跨任务学习效果验证（第二次跑同目标时 decide 更聪明）→ 待实测
+- 协议/浏览器语法层与字节 Grammar 统一 → 两类目标的 LLM 闭环接入
