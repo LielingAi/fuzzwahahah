@@ -1,226 +1,90 @@
-# 🚀 FuzzWahahah - AI-Driven Protocol Fuzzing Platform
+# FuzzWahahah
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Boofuzz](https://img.shields.io/badge/Based%20on-Boofuzz-orange.svg)](https://github.com/jtpereyda/boofuzz)
+FuzzWahahah 是一个面向 Windows 平台的覆盖引导（coverage-guided）模糊测试平台，支持三类目标：**文件格式**、**网络协议**、**浏览器 JavaScript 引擎**。平台在外层用 LLM agent 做调度与种子/语法综合，内层复用成熟的 fuzzing 引擎，不重写它们的变异与调度循环。
 
-**FuzzWahahah** 是一个基于 [Boofuzz](https://github.com/jtpereyda/boofuzz) 的下一代智能协议模糊测试平台，集成了AI驱动的测试策略、符号执行引擎和可视化监控界面。
+## 核心能力
 
-## ✨ 核心特性
+- **三类目标的统一引擎抽象**：AFL++/WinAFL（TinyInst）、libFuzzer、boofuzz、Fuzzilli 各自作为可插拔的内层引擎，平台统一启动、观察、注入种子、收集覆盖与崩溃。
+- **结构感知的种子合成**：从二进制恢复输入格式结构（magic / length / checksum），合成不破坏校验和的合法种子，并通过验证门（VerificationGate）拦截坏种子。
+- **LLM 编排**：LLM agent 在外层循环（秒级）做平台期自救、定向种子生成、崩溃分诊与 harness 合成，所有产出强制过验证门，幻觉无法进入语料库。
+- **协议会话状态机**：Grammar IR 支持会话级状态机（login → command → logout），合成与验证合法会话序列。
 
-### 🤖 AI驱动的智能模糊测试
-- **智能变异生成**: 基于机器学习的自适应变异策略
-- **自适应测试策略**: AI实时分析测试结果并优化测试路径
-- **崩溃模式分析**: 自动识别和分类崩溃模式
-- **持久化学习**: 跨会话保存和应用学习数据
+## 当前状态
 
-### 🔬 符号执行集成
-- **路径约束分析**: 基于符号执行的精确测试用例生成
-- **协议感知生成**: 针对特定协议的智能数据生成
-- **约束求解**: 自动生成满足复杂约束条件的测试数据
-- **统一框架**: 简化的符号执行API，易于集成
+| 目标 | 引擎 | 状态 |
+|------|------|------|
+| 文件格式 | WinAFL（TinyInst 后端）/ libFuzzer | 端到端可用，结构化种子覆盖 11× 于裸变异 |
+| 网络协议 | boofuzz（15 协议 profile + 通用生成器） | 端到端可用 |
+| 浏览器 | Fuzzilli + QuickJS（REPRL Windows 移植） | 端到端可用，已抓到真实崩溃 |
 
-### 🌐 可视化Web界面
-- **实时监控**: 测试进度、崩溃统计、性能指标实时展示
-- **交互式配置**: 通过Web界面配置测试参数
-- **结果分析**: 详细的测试结果分析和可视化
-- **性能优化**: 缓存机制和异步处理提升界面响应速度
+详细的架构决策、分阶段交付记录与已知限制见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-### 🎯 多协议支持
-支持13+种网络协议的模糊测试：
-- **Web协议**: HTTP, HTTP/2
-- **数据库**: MySQL, MSSQL, Redis
-- **网络服务**: FTP, SMTP, SSH, Telnet, DNS
-- **IoT协议**: MQTT, Echo
-- **远程桌面**: RDP
+## 快速开始（Windows）
 
-### 🛠️ 零配置使用
-- **自动协议识别**: 智能检测目标服务协议类型
-- **模板化配置**: 预置协议模板，快速开始测试
-- **智能生成器**: 基于配置自动生成模糊测试脚本
+环境要求：Windows 10/11、Visual Studio 2022（含 C++ 工作负载）、Python 3.10+。
 
-## 📁 项目结构
-
-```
-fuzzwahahah/
-├── boofuzz/                    # 增强的Boofuzz核心库
-│   ├── primitives/            # 智能化的原语组件
-│   │   ├── smart_string.py    # AI增强的字符串生成器
-│   │   ├── random_data.py     # 优化的随机数据生成器
-│   │   └── optimized_numeric.py # 优化的数值生成器
-│   ├── utils/                 # 工具模块
-│   │   ├── enhanced_symbolic_execution.py # 符号执行引擎
-│   │   └── symbolic_execution.py # 基础符号执行
-│   ├── sessions/              # 会话管理
-│   │   └── session.py         # AI增强的会话管理
-│   └── web/                   # Web界面
-│       └── app.py             # 优化的Web应用
-├── protocol_templates/         # 协议模板库
-│   ├── http.json              # HTTP协议模板
-│   ├── mqtt.json              # MQTT协议模板
-│   ├── mysql.json             # MySQL协议模板
-│   └── ...                    # 其他协议模板
-├── protocol_configs/           # 协议配置文件
-│   ├── mqtt_config.yaml       # MQTT配置示例
-│   ├── echo_config.yaml       # Echo配置示例
-│   └── ...                    # 其他配置文件
-├── ai_learning_data/          # AI学习数据
-│   └── global_learning_data.json # 全局学习数据
-├── boofuzz_*_fuzzer.py        # 协议特定的模糊测试器
-├── protocol_fuzzer_generator.py # 智能模糊测试器生成器
-└── process_monitor.py         # 进程监控工具
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows.ps1
 ```
 
-## 🚀 快速开始
+初始化脚本完成外部工具检查、Swift 工具链安装、fuzzillai 与 QuickJS 构建、（可选）WinAFL/TinyInst 构建与端到端验证。加 `-SkipWinAFL` 可跳过 WinAFL 构建。
 
-### 环境要求
-- Python 3.8+
-- 依赖包：见 `requirements.txt`
+构建产物：
 
-### 安装
-```bash
-git clone https://github.com/J0hnFFFF/fuzzwahahah.git
-cd fuzzwahahah
-pip install -r requirements.txt
+- `vendor/fuzzillai/.build/debug/FuzzilliCli.exe` — Fuzzilli 命令行前端
+- `vendor/quickjs/qjs_fuzzilli.exe` — 带覆盖插桩与 REPRL 支持的 QuickJS
+
+运行示例：
+
+```powershell
+# 浏览器：Fuzzilli 驱动 QuickJS
+.\vendor\fuzzillai\.build\debug\FuzzilliCli.exe --profile=qjs --storagePath=out .\vendor\quickjs\qjs_fuzzilli.exe
+
+# 协议：以 Echo 为例（其余 14 个协议脚本同构）
+python boofuzz_echo_fuzzer.py <host> <port>
+
+# 平台演示（引擎/语法/调度/结构恢复/LLM 编排）
+python fuzzcore\phase1_demo.py
+python fuzzcore\mcp_demo.py
 ```
 
-### 基础使用
+## 目录结构
 
-#### 1. 使用预置协议模糊测试器
-```bash
-# HTTP协议模糊测试
-python boofuzz_http_fuzzer.py 192.168.1.100 80 --web-port 26000
-
-# MQTT协议模糊测试
-python boofuzz_mqtt_fuzzer.py 192.168.1.100 1883 --web-port 26001
-
-# MySQL协议模糊测试
-python boofuzz_mysql_fuzzer.py 192.168.1.100 3306 --web-port 26002
+```
+fuzzcore/            平台核心（引擎抽象、语法 IR、验证门、语料库、调度 agent、MCP 工具、结构恢复）
+  vendor/boofuzz/    vendored boofuzz（协议 fuzzing）
+vendor/              vendored 第三方依赖
+  quickjs/           QuickJS（含 REPRL Windows 移植与覆盖插桩）
+  fuzzillai/         Fuzzilli fork（JS 引擎 fuzzer）
+  winafl/            WinAFL + TinyInst（Windows 覆盖引导 fuzzer）
+llm_agent/           LLM 编排包（Kimi Code ACP 客户端 + 事件→prompt 编排）
+protocol_templates/  16 种协议数据模板
+protocol_configs/    协议 fuzzer 生成器配置
+scripts/             环境初始化脚本
+patches/             对 fuzzillai/winafl 的定制补丁（新环境初始化用）
 ```
 
-#### 2. 生成自定义协议模糊测试器
-```bash
-# 查看支持的协议
-python protocol_fuzzer_generator.py --list-templates
+## 致谢
 
-# 创建配置模板
-python protocol_fuzzer_generator.py --create-sample mqtt
+FuzzWahahah 建立在以下开源项目与框架之上：
 
-# 生成模糊测试器
-python protocol_fuzzer_generator.py --config mqtt_config.yaml --symbolic protocol_templates/mqtt.json
-```
+- **[boofuzz](https://github.com/jtpereyda/boofuzz)**（GPL-2.0）— 网络协议模糊测试框架，vendored 于 `fuzzcore/vendor/boofuzz`，作为协议引擎与协议语法模型。
+- **[Fuzzilli](https://github.com/googleprojectzero/fuzzilli)**（Apache-2.0）— Google Project Zero 的覆盖引导 JavaScript 引擎 fuzzer，作为浏览器目标的内层引擎。
+- **[fuzzillai](https://github.com/VRIG-RITSEC/fuzzillai)**（Apache-2.0）— Fuzzilli 的分叉，本项目在其 Windows 移植基础上修复了 REPRL 的若干问题。
+- **[WinAFL](https://github.com/googleprojectzero/winafl)**（Apache-2.0）— Windows 平台的覆盖引导 fuzzer（AFL 移植）。
+- **[TinyInst](https://github.com/googleprojectzero/TinyInst)**（Apache-2.0）— 轻量动态插桩库，作为 WinAFL 在 Windows 25H2 上替代 DynamoRIO 的插桩后端。
+- **[DynamoRIO](https://dynamorio.org/)**（BSD）— 动态二进制插桩框架（WinAFL 的可选后端）。
+- **[AFL++](https://github.com/AFLplusplus/AFLplusplus)**（Apache-2.0）— 覆盖引导 fuzzing 的范式与反馈信号（fuzzer_stats / showmap）来源。
+- **[libFuzzer / LLVM SanitizerCoverage](https://llvm.org/docs/LibFuzzer.html)**（Apache-2.0 with LLVM Exceptions）— 进程内覆盖引导 fuzzing 与 `trace-pc-guard` 覆盖插桩。
+- **[QuickJS](https://bellard.org/quickjs/)**（MIT，Fabrice Bellard）— JavaScript 引擎，本项目为其补充了 REPRL 的 Windows 实现。
+- **[Intel XED](https://github.com/intelxed/xed)**（Apache-2.0）— x86 指令编码/解码库（TinyInst 依赖）。
+- **[SQLite](https://www.sqlite.org/)**（公有领域）— 语料库、种子队列与学习数据的持久化。
+- **[Kimi Code](https://www.kimi.com/code/)**（Moonshot AI）— LLM agent，经 Agent Client Protocol（ACP）承担外层编排。
 
-#### 3. Web界面监控
-访问 `http://localhost:26000` 查看实时测试状态、结果分析和性能指标。
+架构上参考了 OSS-Fuzz 与 ClusterFuzz 的"监督式黑盒引擎"范式，以及 Fuzzillai 的 generated-program-queue 种子队列模式。
 
-WEB界面：
-![Web界面](https://github.com/J0hnFFFF/fuzzwahahah/blob/main/web.png)
+## 许可证
 
-## 🧠 AI增强功能
+本项目代码以 [MIT](LICENSE) 许可证发布。各 vendored 第三方组件保留其原始许可证（见上述致谢及对应目录）。
 
-### 智能变异策略
-```python
-# AI自适应策略在会话中自动启用
-session.ai_strategy_enabled = True
-session.ai_decision_threshold = 0.15  # 决策阈值
-session.ai_adaptation_interval = 50   # 适应间隔
-```
-
-### 符号执行集成
-```python
-from boofuzz.utils.enhanced_symbolic_execution import generate_protocol_data
-
-# 生成协议特定的测试数据
-test_data = generate_protocol_data("http", "paths", count=100, use_ai=True)
-```
-
-### 学习数据管理
-- 自动保存测试结果和有效变异模式
-- 跨会话持久化学习数据
-- 基于历史数据优化测试策略
-
-## 📊 监控与分析
-
-### Web界面功能
-- **实时仪表板**: 测试进度、成功率、崩溃统计
-- **详细日志**: 完整的测试日志和错误信息
-- **性能监控**: CPU、内存使用情况和响应时间
-- **结果导出**: 支持多种格式的结果导出
-
-### API端点
-- `/api/current-test-case`: 当前测试用例信息
-- `/api/stats`: 测试统计数据
-- `/api/optimization-stats`: 优化统计信息
-- `/api/performance-metrics`: 性能指标
-
-## 🔧 高级配置
-
-### 协议配置文件示例
-```yaml
-protocol:
-  name: "MQTT"
-  port: 1883
-  transport: "tcp"
-  is_text_protocol: false
-  dangerous: false
-
-description: "MQTT Protocol Fuzzer with AI Enhancement"
-web_port: 26000
-
-symbolic_data:
-  topics:
-    type: "topics"
-    count: 50
-  messages:
-    type: "messages"
-    count: 100
-
-requests:
-  - name: "MQTT Connect"
-    id: "MQTT_CONNECT"
-    fields:
-      - type: "bytes"
-        value: "\\x10\\x0e\\x00\\x04MQTT\\x04\\x02\\x00\\x3c\\x00\\x04test"
-```
-
-### 自定义AI策略
-```python
-# 自定义决策阈值和适应参数
-session.ai_decision_threshold = 0.1    # 更激进的策略
-session.ai_adaptation_interval = 25    # 更频繁的适应
-```
-
-## 🛡️ 安全注意事项
-
-⚠️ **重要警告**:
-- 本工具仅用于授权的安全测试
-- 对生产环境进行测试前请确保有适当的授权
-- 某些协议的模糊测试可能导致服务中断
-- 建议在隔离的测试环境中使用
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-## 📄 许可证
-
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 🙏 致谢
-
-- [Boofuzz](https://github.com/jtpereyda/boofuzz) - 优秀的模糊测试框架
-- 所有贡献者和测试人员
-
-## 📞 联系方式
-
-- 项目主页: [GitHub Repository](https://github.com/J0hnFFFF/fuzzwahahah)
-- 问题反馈: [Issues](https://github.com/J0hnFFFF/fuzzwahahah/issues)
-- 文档: [Wiki](https://github.com/J0hnFFFF/fuzzwahahah/wiki)
-
----
-
-**让模糊测试更智能，让安全测试更高效！** 🎯
+许可证分层说明：vendored 的 **boofuzz**（`fuzzcore/vendor/boofuzz`）为 GPL-2.0，直接 `import boofuzz` 的协议 fuzzer 脚本（`boofuzz_*_fuzzer.py` 及生成器产物）与其构成单一程序，同样以 GPL-2.0 发布；平台其余部分（`fuzzcore/` 的引擎、调度、语法、`llm_agent/` 等）通过子进程方式调用 boofuzz，属于聚合（aggregate）而非衍生作品，以 MIT 发布。
